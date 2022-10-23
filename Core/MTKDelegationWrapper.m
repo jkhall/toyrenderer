@@ -147,11 +147,12 @@
     // default scene
     _defaultScene = (Scene *)malloc(sizeof(Scene));
     _defaultScene->rawModelNames[0] = "spot.obj";
+    _defaultScene->rawModelNames[1] = "plane"; // how might we put default geo in here
     _defaultScene->modelIndices = std::vector<size_t> {
             0,
     };
 
-    vector_float3 vt = {0.0, 0.0, 0.0};
+    vector_float3 vt = {0.0, 0.0, -0.5};
 
     _defaultScene->transforms = std::vector<matrix_float4x4> {
 //        matrix_identity_float4x4,
@@ -280,7 +281,7 @@
     // physics
     // other kinds of updates
     
-//    _renderer->updateLookat(0.01, 0.0);
+    _renderer->updateLookat(0.01, 0.0);
     
     if(!_scene->isLoaded) {
         // the scene has already been passed to the renderer
@@ -334,7 +335,7 @@
 
 - (void) loadScene:(Scene *)scene {
     
-    dispatch_queue_t q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0);
+    dispatch_queue_t q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0);
     
     dispatch_sync(q, ^{
         LoadModelDataFromScene(scene, (__bridge MTL::Device*)_view.device);

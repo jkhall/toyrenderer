@@ -250,8 +250,8 @@ void Renderer::setFrameData(matrix_float4x4 modelMatrix, vector_float4 color)
     
     vector_float3 cameraTranslate = {0, 0, -5};
         
-//    matrix_float4x4 viewMatrix = _lookat;
-    matrix_float4x4 viewMatrix = matrix_float4x4_translation(cameraTranslate);
+    matrix_float4x4 viewMatrix = _lookat;
+//    matrix_float4x4 viewMatrix = matrix_float4x4_translation(cameraTranslate);
     matrix_float4x4 scaleMatrix = matrix_float4x4_uniform_scale(1.0);
     float aspect = (float)_viewportSize.x/(float)_viewportSize.y;
     float fov = 2 * M_PI / 5;
@@ -439,7 +439,7 @@ void Renderer::updateLookat(float deltaX, float deltaY) {
     
     vector_float3 pos;
     
-    pos = {(float)cos(yaw), 0, (float)sin(yaw)};
+    pos = {(float)sin(yaw) * radius, 0, (float)cos(yaw) * radius};
     
 //    pos = {(float)cos(yaw)*(float)cos(pitch)*radius, (float)sin(pitch)*radius, (float)sin(yaw)*(float)cos(pitch)*radius};
     
