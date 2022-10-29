@@ -15,6 +15,7 @@
 #import <MetalKit/MetalKit.h>
 #import <Metal/Metal.h>
 #import <vector>
+#import <map>
 #import "DelegateTest.h"
 
 #if defined(TARGET_IOS)
@@ -38,11 +39,13 @@
 @property Scene *defaultScene; // this should really be a static scene or something
 @property Scene *scene;
 @property MTKView *view;
-@property NSButton *loadDefaultSceneButton;
-@property NSTextField *sceneUnloadedText;
+@property std::map<std::string, Scene*> sceneDictionary;
 #if defined(TARGET_IOS)
 @property CMMotionManager* motion;
 @property CMAttitude* referenceAttitude;
+#elif defined(TARGET_MACOS)
+@property NSButton *loadDefaultSceneButton;
+@property NSTextField *sceneUnloadedText;
 #endif
 @end
 
@@ -144,28 +147,43 @@
     
     _view = view;
     
+    // want to allow scene selection
+    
     // default scene
     _defaultScene = (Scene *)malloc(sizeof(Scene));
-    _defaultScene->rawModelNames[0] = "spot.obj";
-    _defaultScene->rawModelNames[1] = "plane"; // how might we put default geo in here
+    _defaultScene->rawModelNames[1] = "spot.obj";
+    _defaultScene->rawModelNames[0] = "plane";
+//    _defaultScene->rawModelNames[1] = "triangle";
+    
+//    _defaultScene->rawModelNames[1] = "plane"; // how might we put default geo in here
     _defaultScene->modelIndices = std::vector<size_t> {
+            1,
             0,
     };
-
-    vector_float3 vt = {0.0, 0.0, -0.5};
-
+    
+    vector_float3 vt = {0.0, 0.0, 0.0};
+    vector_float3 planet = {0.0, 0.0, -5.0};
+    
     _defaultScene->transforms = std::vector<matrix_float4x4> {
 //        matrix_identity_float4x4,
+        matrix_float4x4_translation(planet),
         matrix_float4x4_translation(vt),
-//        matrix_float4x4_translation(vt)
-//        matrix_identity_float4x4
+        // scale and translation
+
+    //        matrix_float4x4_translation(vt)
+    // matrix_identity_float4x4
     };
 
     _defaultScene->colors = std::vector<vector_float4> {
         (vector_float4){1.0, 0.0, 0.0, 1.0},
         (vector_float4){0.0, 1.0, 0.0, 1.0},
+        (vector_float4){0.0, 1.0, 0.0, 1.0},
     };
-
+    
+    _sceneDictionary = {
+        {"Default", _defaultScene},
+    };
+    
     if(_scene == nil) {
         _scene = _defaultScene;
     }
@@ -315,7 +333,7 @@
         // would like for the renderer to fall back to something
         _renderer->addDrawCommands(_scene->vertexOffsets[_scene->modelIndices[i]],
                                    _scene->indexOffsets[_scene->modelIndices[i]],
-                                   _scene->indexOffsets[_scene->modelIndices[i] + 1] / sizeof(MBEIndex),
+                                   _scene->indexOffsets[_scene->modelIndices[i] + 1] - _scene->indexOffsets[_scene->modelIndices[i]],
                                    nullptr,
                                    _scene->colors[i],
                                    [_reducer tick:i]);
@@ -333,13 +351,14 @@
      */
 }
 
+// what an actually insane bug
 - (void) loadScene:(Scene *)scene {
     
     dispatch_queue_t q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0);
     
     dispatch_sync(q, ^{
         LoadModelDataFromScene(scene, (__bridge MTL::Device*)_view.device);
-        scene->isLoaded = true;
+        scene->isLoaded = true;        
     });
     
     

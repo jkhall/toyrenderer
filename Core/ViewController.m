@@ -46,6 +46,9 @@
     
     _view.delegate = _wrapper;
    
+    // start off paused
+    // should I pause the view while reading from the file?
+//    _view.paused = YES;
     
 }
 

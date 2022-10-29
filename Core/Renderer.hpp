@@ -54,6 +54,14 @@ class Renderer
         
         static std::map<std::string, std::string> modelFilenameToResourcePath;
         static std::map<const char*, const char*, StrCmp> textureFilenameToResourcePath;
+        
+        // the index of the shape name will be the index into the two offset arrays
+        static const std::vector<std::string> defaultShapes;
+        static const std::vector<size_t> defaultShapesVOffsets;
+        static const std::vector<size_t> defaultShapesIOffsets;
+        static const std::vector<MBEVertex> defaultShapesVertices;
+        static const std::vector<MBEIndex> defaultShapesIndices;
+        
         static const char* modelFilenames[1];
         static const char* textureFilenames[1];
 

@@ -48,6 +48,71 @@ const char* Renderer::textureFilenames[1] {
 std::map<std::string, std::string> Renderer::modelFilenameToResourcePath = std::map<std::string,std::string> {};
 std::map<const char*, const char*, StrCmp> Renderer::textureFilenameToResourcePath = std::map<const char*, const char*, StrCmp> {};
 
+// would be nice to just have these in a structure that's ready to go
+const std::vector<std::string> Renderer::defaultShapes {
+    "plane",
+    "triangle"
+};
+
+const std::vector<size_t> Renderer::defaultShapesVOffsets {
+    0,
+    4,
+    7,
+};
+
+const std::vector<size_t> Renderer::defaultShapesIOffsets {
+    0,
+    6,
+    9,
+};
+
+
+const std::vector<MBEVertex> Renderer::defaultShapesVertices {
+    // Plane
+    {
+        .position = {-10, -0.8, 0.5, 1.0},
+        .color = {1.0, 1.0, 1.0, 1.0},
+    },
+    {
+        .position = {-10, -0.8, -10.0, 1.0},
+        .color = {1.0, 1.0, 1.0, 1.0},
+    },
+    {
+        .position = {10, -0.8, -10.0, 1.0},
+        .color = {1.0, 1.0, 1.0, 1.0},
+    },
+    {
+        .position = {10, -0.8, 0.5, 1.0},
+        .color = {1.0, 1.0, 1.0, 1.0},
+    },
+//     Triangle
+    {
+        .position = {-0.5, -0.8, -2.0, 1.0},
+        .color = {1.0, 1.0, 0.0, 1.0},
+    },
+    {
+        .position = {0.0, 0.5, -2.0, 1.0},
+        .color = {1.0, 1.0, 1.0, 1.0},
+    },
+    {
+        .position = {0.5, -0.8, -2.0, 1.0},
+        .color = {1.0, 1.0, 1.0, 1.0},
+    },
+    
+};
+
+// counterclockwise
+const std::vector<MBEIndex> Renderer::defaultShapesIndices {
+    // Plane
+    0,3,2,
+    2,1,0,
+    // Triangle
+    2,1,0,
+//    0,3,2,
+//    0,1,2,
+};
+
+
 bool Renderer::dictsLoaded = false;
 
 class Camera
@@ -242,6 +307,7 @@ void Renderer::displayPictureBuffer() {
     
 }
 
+// would be nice to disable perspective projection when you want
 void Renderer::setFrameData(matrix_float4x4 modelMatrix, vector_float4 color)
 {
     // what we're going to do is...
@@ -250,9 +316,10 @@ void Renderer::setFrameData(matrix_float4x4 modelMatrix, vector_float4 color)
     
     vector_float3 cameraTranslate = {0, 0, -5};
         
-    matrix_float4x4 viewMatrix = _lookat;
-//    matrix_float4x4 viewMatrix = matrix_float4x4_translation(cameraTranslate);
-    matrix_float4x4 scaleMatrix = matrix_float4x4_uniform_scale(1.0);
+    float scaleFactor = 5.0;
+//    matrix_float4x4 viewMatrix = _lookat;
+    matrix_float4x4 viewMatrix = matrix_float4x4_translation(cameraTranslate);
+    matrix_float4x4 scaleMatrix = matrix_float4x4_uniform_scale(scaleFactor);
     float aspect = (float)_viewportSize.x/(float)_viewportSize.y;
     float fov = 2 * M_PI / 5;
     float near = 1;
@@ -281,9 +348,11 @@ void Renderer::setFrameData(matrix_float4x4 modelMatrix, vector_float4 color)
     
     data->color = color;
     
+    // MARK: Todo - Don't create a new buffer for every frame
+    // we don't want to create a buffer every frame
     MTL::Buffer* frameDataBuffer = _pDevice->newBuffer(data, sizeof(FrameData), MTL::ResourceCPUCacheModeDefaultCache);
     
-    _pFrameData[_frame] = frameDataBuffer;
+    _pFrameData[_frame] = frameDataBuffer; // this would have to be additive?
 };
 
 Renderer::~Renderer()
@@ -364,26 +433,11 @@ void Renderer::addDrawCommands(size_t vertexOffset, size_t indexOffset, size_t i
     setFrameData(transform, color);
     
     if(!_pScene->isLoaded) {
-        // present some kind of basic view
-        
-//        _renderCommandEncoder->setVertexBuffer(_pScene->vertices, vertexOffset, 0);
-//        
-//        _renderCommandEncoder->setVertexBuffer(_pFrameData[_frame], 0, 1);
-//        // encode fragment data
-//        _renderCommandEncoder->setFragmentTexture(texture, 0);
-//        _renderCommandEncoder->setFragmentSamplerState(_pSamplerState, 0);
-//
-//        _renderCommandEncoder->drawIndexedPrimitives(MTL::PrimitiveType::PrimitiveTypeTriangle,
-//                                                    indexCount, // <- idk know about this
-//                                                    MBEIndexType,
-//                                                    _pScene->indices,
-//                                                    indexOffset);
-        
         return;
     }
     
     // encode vertex data
-    _renderCommandEncoder->setVertexBuffer(_pScene->vertices, vertexOffset, 0);
+    _renderCommandEncoder->setVertexBuffer(_pScene->vertices, vertexOffset * sizeof(MBEVertex), 0);
     
     // the renderer should actually deal with mvp and mv matrices
 //    _renderCommandEncoder->setVertexBytes(_pFrameData[_frame], sizeof(FrameData), 1);
