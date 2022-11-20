@@ -17,12 +17,15 @@
 #import <vector>
 #import <map>
 #import "DelegateTest.h"
+#import "TextTypes.h"
 
 #if defined(TARGET_IOS)
 #import <UIKit/UIKit.h>
 #import <CoreMotion/CoreMotion.h>
+#define PlatformFont UIFont
 #elif defined(TARGET_MACOS)
 #import <Cocoa/Cocoa.h>
+#define PlatformFont NSFont
 #endif
 
 @interface MTKDelegationWrapper : NSObject<MTKViewDelegate>
@@ -30,16 +33,32 @@
 -(instancetype) initWithView:(MTKView*)view;
 -(void) generateMipmapsForTexture:(id<MTLTexture>) texture onQueue:(id<MTLCommandQueue>)queue;
 -(void) respondToTakePicture;
-- (void)rightMouseDragged:(NSEvent*)event;
-
+-(void) rightMouseDragged:(NSEvent*)event;
+-(uint8_t *) createTextBitmap;
+-(float *) createSignedDistanceField:(uint8_t*)imageData width:(NSUInteger)width height:(NSUInteger)height;
+-(float *) resampleDistanceField:(float *)distanceField width:(NSUInteger)width height:(NSUInteger)height scaleFactor:(NSUInteger)scaleFactor;
+-(void) buildFontAtlas;
+-(void) buildTextMesh;
 
 @property (nonatomic, readwrite, assign) Renderer* renderer;
 @property Reducer *reducer;
+@property TextMeshProxy* textMeshProxy;
 @property CGFloat zoomReference;
 @property Scene *defaultScene; // this should really be a static scene or something
 @property Scene *scene;
 @property MTKView *view;
+@property uint8_t *textImageData;
 @property std::map<std::string, Scene*> sceneDictionary;
+// text things
+// MARK: TODO - Move this text shite
+@property NSArray *glyphDescriptors;
+@property CGFloat pointSize;
+@property CTFontRef fontRef;
+@property FontAtlas *atlas;
+@property TextMesh *textMesh;
+@property id<MTLTexture> fontTexture;
+
+// end text shite
 #if defined(TARGET_IOS)
 @property CMMotionManager* motion;
 @property CMAttitude* referenceAttitude;
@@ -48,6 +67,60 @@
 @property NSTextField *sceneUnloadedText;
 #endif
 @end
+
+// Text Rendering Stuff
+static NSString *const TRGlyphIndexKey = @"glyphIndex";
+static NSString *const TRLeftTexCoordKey = @"leftTexCoord";
+static NSString *const TRRightTexCoordKey = @"rightTexCoord";
+static NSString *const TRTopTexCoordKey = @"topTexCoord";
+static NSString *const TRBottomTexCoordKey = @"bottomTexCoord";
+static NSString *const TRFontNameKey = @"fontName";
+static NSString *const TRFontSizeKey = @"fontSize";
+static NSString *const TRFontSpreadKey = @"spread";
+static NSString *const TRTextureDataKey = @"textureData";
+static NSString *const TRTextureWidthKey = @"textureWidth";
+static NSString *const TRTextureHeightKey = @"textureHeight";
+static NSString *const TRGlyphDescriptorsKey = @"glyphDescriptors";
+
+static NSString *const FontName = @"Menlo Regular";
+static float           FontAtlasSize = 2048;
+static NSString *const TRSampleText = @"Tell me something good!";
+static float TRFontDisplaySize = 72;
+
+// glyph descriptor definition
+// no bueno...
+@implementation TRGlyphDescriptor
+
+- (instancetype)initWithCoder:(NSCoder *)aDecoder
+{
+    if ((self = [super init]))
+    {
+        _glyphIndex = [aDecoder decodeIntForKey:TRGlyphIndexKey];
+        _topLeft.x = [aDecoder decodeFloatForKey:TRLeftTexCoordKey];
+        _topLeft.y = [aDecoder decodeFloatForKey:TRTopTexCoordKey];
+        _bottomRight.x = [aDecoder decodeFloatForKey:TRRightTexCoordKey];
+        _bottomRight.y = [aDecoder decodeFloatForKey:TRBottomTexCoordKey];
+    }
+
+    return self;
+}
+
+- (void)encodeWithCoder:(NSCoder *)aCoder
+{
+    [aCoder encodeInt:self.glyphIndex forKey:TRGlyphIndexKey];
+    [aCoder encodeFloat:self.topLeft.x forKey:TRLeftTexCoordKey];
+    [aCoder encodeFloat:self.topLeft.y forKey:TRTopTexCoordKey];
+    [aCoder encodeFloat:self.bottomRight.x forKey:TRRightTexCoordKey];
+    [aCoder encodeFloat:self.bottomRight.y forKey:TRBottomTexCoordKey];
+}
+
++ (BOOL)supportsSecureCoding
+{
+    return YES;
+}
+
+@end
+
 
 @implementation MTKDelegationWrapper
 
@@ -132,6 +205,34 @@
 }
 #endif
 
+-(void) buildFontAtlas {
+    PlatformFont *font;
+#if defined(TARGET_MACOS)
+    font = [NSFont fontWithName:FontName size:32]; // don't know why it's this size from the example
+#elif defined(TARGET_IOS)
+    font = [UIFont fontWithName:FontName size:32];
+#endif
+    
+    _atlas = [[FontAtlas alloc] initWithFont:font size:FontAtlasSize];
+    
+    MTLTextureDescriptor *textureDesc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatR8Unorm
+                                                                                           width:FontAtlasSize
+                                                                                          height:FontAtlasSize
+                                                                                       mipmapped:NO];
+    textureDesc.usage = MTLTextureUsageShaderRead;
+    MTLRegion region = MTLRegionMake2D(0, 0, FontAtlasSize, FontAtlasSize);
+    _fontTexture = [_view.device newTextureWithDescriptor:textureDesc];
+    [_fontTexture setLabel:@"font texture"];
+    [_fontTexture replaceRegion:region mipmapLevel:0 withBytes:_atlas.textureData.bytes bytesPerRow:FontAtlasSize];
+}
+
+-(void) buildTextMesh {
+    // no idea about this...
+    CGRect textRect = CGRectInset(_view.frame, 10, 10);
+    
+    _textMesh = [[TextMesh alloc] initWithString:TRSampleText inRect:textRect withFontAtlas:_atlas atSize:TRFontDisplaySize device:_view.device];
+}
+
 -(void) generateMipmapsForTexture:(id<MTLTexture>)texture onQueue:(id<MTLCommandQueue>)queue {
     id<MTLCommandBuffer> buffer = [queue commandBuffer];
     id<MTLBlitCommandEncoder> blitEncoder = [buffer blitCommandEncoder];
@@ -147,17 +248,21 @@
     
     _view = view;
     
+    NSLog(@"Window width: %f", _view.frame.size.width);
+    NSLog(@"Window height: %f", _view.frame.size.height);
+    
     // want to allow scene selection
     
     // default scene
+    // how should we draw text in this context?
+    
     _defaultScene = (Scene *)malloc(sizeof(Scene));
-    _defaultScene->rawModelNames[1] = "spot.obj";
-    _defaultScene->rawModelNames[0] = "plane";
-//    _defaultScene->rawModelNames[1] = "triangle";
+//    _defaultScene->rawModelNames[0] = "spot.obj";
+//    _defaultScene->rawModelNames[0] = "plane";
+    _defaultScene->rawModelNames[0] = "triangle";
     
 //    _defaultScene->rawModelNames[1] = "plane"; // how might we put default geo in here
     _defaultScene->modelIndices = std::vector<size_t> {
-            1,
             0,
     };
     
@@ -165,9 +270,9 @@
     vector_float3 planet = {0.0, 0.0, -5.0};
     
     _defaultScene->transforms = std::vector<matrix_float4x4> {
-//        matrix_identity_float4x4,
-        matrix_float4x4_translation(planet),
-        matrix_float4x4_translation(vt),
+        matrix_identity_float4x4,
+//        matrix_float4x4_translation(planet),
+//        matrix_float4x4_translation(vt),
         // scale and translation
 
     //        matrix_float4x4_translation(vt)
@@ -273,9 +378,54 @@
 //    // how should we really do scene selection....
     self.reducer = [[Reducer alloc] initWithScene:self.defaultScene];
     
+    // i want to have the font by this point
+    
+    // text stuff
+    // possibly shouldn't be doing this in the initializer
+    
+    NSString *rawFontName = @"Menlo Regular";
+    
+    [self createTextureData]; // should be off the UI thread
+
+    // should not be doing this in multiple places
+//    NSUInteger boundsWidth = 4096;
+//    NSUInteger boundsHeight = 4096;
+//    NSUInteger textureSize = 4096;
+//    NSUInteger fontAtlasSize = 4096;
+//
+//    CGRect rect = CGRectMake(0, 0, boundsWidth, boundsHeight);
+//
+//    NSInteger scaleFactor = fontAtlasSize / textureSize;
+    
+//    float spread = [self estimateGlyphWidth:(__bridge NSFont*)_fontRef];
+//    
+//    uint8_t* imageData = [self createTextBitmap];
+//    float* sdf = [self createSignedDistanceField:imageData width:4096 height:4096];
+//    float *scaledField = [self resampleDistanceField:sdf width:boundsWidth height:boundsHeight scaleFactor:scaleFactor];
+//    
+//    free(sdf);
+//    
+//    uint8_t* qImageData = [self quantizeDistanceField:scaledField width:4096 height:4096 normalizationFactor:spread];
+//    
+//    free(scaledField);
+//    
+//    NSInteger texByteCount = textureSize * textureSize;
+//    
+//    _atlas = [[FontAtlas alloc] init];
+//    _atlas.textureData = [NSData dataWithBytesNoCopy:qImageData length:texByteCount freeWhenDone:YES];
+//
     return self;
 }
+
+// for text...
+-(void) createTextureData {
+    [self buildFontAtlas];
+    [self buildTextMesh];
     
+    _textMeshProxy = (TextMeshProxy *)malloc(sizeof(TextMeshProxy));
+    *_textMeshProxy = TextMeshProxy { .vertices = (__bridge MTL::Buffer*)_textMesh.textVertexBuffer, .indices = (__bridge MTL::Buffer*)_textMesh.textIndexBuffer, .texture = (__bridge MTL::Texture*)_fontTexture};
+}
+
 - (void)drawInMTKView:(nonnull MTKView *)view {
     MTLRenderPassDescriptor* rpd = view.currentRenderPassDescriptor;
     
@@ -284,7 +434,8 @@
     // yeah...
     // parse file
 //    if(_scene->vertexOffsets.size() <= 0) return;
-   
+
+    
 #if defined(TARGET_IOS)
     // we're gonna do this sorta thing
     // maybe what we really want is something more processed using this
@@ -302,6 +453,7 @@
     _renderer->updateLookat(0.01, 0.0);
     
     if(!_scene->isLoaded) {
+//        NSLog(@"scene not loaded");
         // the scene has already been passed to the renderer
         if(view.subviews.count == 0) {
             NSRect rect = NSMakeRect((_view.frame.size.width / 2) - 200, _view.frame.size.height / 2, 200, 20);
@@ -325,21 +477,28 @@
         [_loadDefaultSceneButton removeFromSuperview];
     }
     
-    _renderer->startDraw((__bridge MTL::RenderPassDescriptor*)rpd, (__bridge CA::MetalDrawable*)view.currentDrawable);
-    for(int i = 0; i < _scene->modelIndices.size(); i++){
-        // the renderer has a _scene reference. why not just pass in the object index
-        // this is probably slow as shit because ptr following, etc...
-        // you do not want to load an unloaded scene
-        // would like for the renderer to fall back to something
-        _renderer->addDrawCommands(_scene->vertexOffsets[_scene->modelIndices[i]],
-                                   _scene->indexOffsets[_scene->modelIndices[i]],
-                                   _scene->indexOffsets[_scene->modelIndices[i] + 1] - _scene->indexOffsets[_scene->modelIndices[i]],
-                                   nullptr,
-                                   _scene->colors[i],
-                                   [_reducer tick:i]);
-    }
-    _renderer->endDraw();
+    _renderer->preDraw((__bridge MTL::RenderPassDescriptor*)rpd, (__bridge CA::MetalDrawable*)view.currentDrawable);
+//    _renderer->startDraw((__bridge MTL::RenderPassDescriptor*)rpd, (__bridge CA::MetalDrawable*)view.currentDrawable);
+//    for(int i = 0; i < _scene->modelIndices.size(); i++){
+//        // the renderer has a _scene reference. why not just pass in the object index
+//        // this is probably slow as shit because ptr following, etc...
+//        // you do not want to load an unloaded scene
+//        // would like for the renderer to fall back to something
+//        _renderer->addDrawCommands(_scene->vertexOffsets[_scene->modelIndices[i]],
+//                                   _scene->indexOffsets[_scene->modelIndices[i]],
+//                                   _scene->indexOffsets[_scene->modelIndices[i] + 1] - _scene->indexOffsets[_scene->modelIndices[i]],
+//                                   nullptr,
+//                                   _scene->colors[i],
+//                                   [_reducer tick:i]);
+//    }
     
+    // text
+    _renderer->startDrawText((__bridge MTL::RenderPassDescriptor*)rpd, (__bridge CA::MetalDrawable*)view.currentDrawable);
+    _renderer->addDrawCommandsText(_textMeshProxy); // no bridge call?
+//    _renderer->endDrawText();
+    
+    
+    _renderer->endDraw(); // drawable can only be presented once
     // should hand the transform off to the draw call
     // that said it should really be a set of transforms for all the objects
     
@@ -356,7 +515,7 @@
     
     dispatch_queue_t q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0);
     
-    dispatch_sync(q, ^{
+    dispatch_async(q, ^{
         LoadModelDataFromScene(scene, (__bridge MTL::Device*)_view.device);
         scene->isLoaded = true;        
     });

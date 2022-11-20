@@ -16,4 +16,10 @@ struct StrCmp {
     }
 };
 
+typedef struct {
+    MTL::Buffer* vertices;
+    MTL::Buffer* indices;
+    MTL::Texture* texture;
+} TextMeshProxy;
+
 #endif /* Utils_h */

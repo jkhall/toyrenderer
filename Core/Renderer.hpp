@@ -27,12 +27,17 @@ class Renderer
     public:
         Renderer(MTL::Device*, NS::UInteger, Scene *scene, float width, float height);
         ~Renderer();
+        void preDraw(MTL::RenderPassDescriptor* renderPassDesc, CA::MetalDrawable* drawable);
         void draw(MTL::RenderPassDescriptor* renderPassDesc, CA::MetalDrawable* drawable, NS::Integer preferredFramesPerSecond);
         bool drawCurrentScene(MTL::RenderCommandEncoder*);
+        void startDrawText(MTL::RenderPassDescriptor*, CA::MetalDrawable*);
+        void endDrawText();
+        void addDrawCommandsText(TextMeshProxy* textMesh);
         void startDraw(MTL::RenderPassDescriptor*, CA::MetalDrawable*);
         void endDraw();
         void addDrawCommands(size_t vertexOffset, size_t indexOffset, size_t indexCount, MTL::Texture* texture, vector_float4 color, matrix_float4x4 transform);
         void setFrameData(matrix_float4x4, vector_float4);
+    void setFrameDataText();
         void setViewportSize(uint x, uint y);
         void addModel(std::string modelPath);
         void buildFrameData();
@@ -64,16 +69,21 @@ class Renderer
         
         static const char* modelFilenames[1];
         static const char* textureFilenames[1];
+    
+        static const FrameData textStaticFrameData;
 
     private:
         MTL::Device* _pDevice;
         MTL::CommandQueue *_pCommandQueue;
+        MTL::CommandQueue *_pTextCommandQueue;
         MTL::RenderPipelineState* _pPSO; // pipeline state object
+        MTL::RenderPipelineState* _pTextPSO; // pipeline state object for text, possibly more general 2D things...?
         MTL::Buffer* _pVertices;
         MTL::Buffer* _pColors;
         MTL::Buffer* _pCubeVertices;
         MTL::Buffer* _pCubeIndices;
-        MTL::DepthStencilState* _pDeptchStencilState;
+        MTL::DepthStencilState* _pDepthStencilState;
+        MTL::DepthStencilState* _pTextDepthStencilState;
         //MTL::Buffer* _pModelViewProjMat[3];
         MTL::Buffer* _pFrameData[3];
         MTL::Buffer* _pVertexIndexBufferMTL;
@@ -83,11 +93,19 @@ class Renderer
     
         MTL::Texture* _pTex;
         MTL::SamplerState* _pSamplerState;
-        
+        MTL::SamplerState* _pTextSamplerState;
+    
         NS::AutoreleasePool* _pool;
+        NS::AutoreleasePool* _textPool;
         MTL::CommandBuffer* _commandBuffer;
+        MTL::CommandBuffer* _textCommandBuffer;
         MTL::RenderCommandEncoder* _renderCommandEncoder;
+        MTL::RenderCommandEncoder* _textRenderCommandEncoder;
         CA::MetalDrawable* _drawable;
+    
+        // Text
+        FrameData *_textUniforms;
+    
         // Scene
         Scene *_pScene;
     

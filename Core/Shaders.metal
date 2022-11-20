@@ -73,6 +73,7 @@ constant Material material = {
 //    return out;
 //}
 
+// can I get away with using this for both fragment and vertexShaders?
 vertex ProjectedVertex vertexShader(uint vid [[vertex_id]], constant MBEVertex *vertices [[buffer(0)]],
                            constant Uniforms *uniforms [[buffer(1)]],
                            constant vector_uint2 *viewportPtr [[buffer(2)]])
@@ -84,7 +85,7 @@ vertex ProjectedVertex vertexShader(uint vid [[vertex_id]], constant MBEVertex *
     out.normal = uniforms->normalMatrix * vertices[vid].normal.xyz;
     out.vt = vertices[vid].uv;
 //    out.color = vertices[vid].color;
-    out.color = uniforms->colors;
+    out.color = float4(0, 0, 0, 1);
 
     return out;
 }
@@ -93,6 +94,28 @@ vertex ProjectedVertex vertexShader(uint vid [[vertex_id]], constant MBEVertex *
 //fragment float4 fragmentShader(ProjectedVertex vin [[stage_in]]){
 //    return vin.color;
 //}
+
+// text fragment shader
+fragment half4 textFragmentShader(ProjectedVertex vert [[stage_in]],
+                               texture2d<float> texture [[texture(0)]],
+                                sampler samplr [[sampler(0)]]) {
+    
+    float4 color = float4(0.1, 0.1, 0.1, 1); // just black for now
+    // Outline of glyph is the isocontour with value 50%
+    float edgeDistance = 0.5;
+    // Sample the signed-distance field to find distance from this fragment to the glyph outline
+    float sampleDistance = texture.sample(samplr, vert.vt).r; // <- is this set up correctly?...
+    // Use local automatic gradients to find anti-aliased anisotropic edge width, cf. Gustavson 2012
+    float edgeWidth = 0.75 * length(float2(dfdx(sampleDistance), dfdy(sampleDistance)));
+    // Smooth the glyph edge by interpolating across the boundary in a band with the width determined above
+    float insideness = smoothstep(edgeDistance - edgeWidth, edgeDistance + edgeWidth, sampleDistance);
+    
+    
+//    return half4(1, 1, 1, 1.0);
+    return half4(color.r, color.g, color.b, insideness);
+}
+
+
 
 fragment float4 fragmentShader(ProjectedVertex vin [[stage_in]],
                                texture2d<float> diffuseTexture [[texture(0)]],

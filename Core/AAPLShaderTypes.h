@@ -93,6 +93,27 @@ static matrix_float4x4 matrix_float4x4_perspective(float aspect, float fovy, flo
     return mat;
 };
 
+static matrix_float4x4 matrix_orthographic_projection(float left, float right, float top, float bottom)
+{
+    float near = 0;
+    float far = 1;
+
+    float sx = 2 / (right - left);
+    float sy = 2 / (top - bottom);
+    float sz = 1 / (far - near);
+    float tx = (right + left) / (left - right);
+    float ty = (top + bottom) / (bottom - top);
+    float tz = near / (far - near);
+
+    vector_float4 P = { sx,  0,  0, 0 };
+    vector_float4 Q = {  0, sy,  0, 0 };
+    vector_float4 R = {  0,  0, sz, 0 };
+    vector_float4 S = { tx, ty, tz,  1 };
+
+    matrix_float4x4 mat = { P, Q, R, S };
+    return mat;
+}
+
 static matrix_float3x3 matrix_float4x4_extract_linear(matrix_float4x4 mv) {
     vector_float3 X = mv.columns[0].xyz;
     vector_float3 Y = mv.columns[1].xyz;

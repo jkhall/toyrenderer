@@ -43,6 +43,13 @@ const char* Renderer::textureFilenames[1] {
     "spot.png",
 };
 
+const FrameData Renderer::textStaticFrameData  {
+    matrix_identity_float4x4,
+    matrix_identity_float4x4,
+    matrix_identity_float3x3,
+    {0, 0, 0, 0},
+};
+
 // MARK: Todo - need a custom compare function to compare the underlying content of the char* ' s
 //std::map<const char*, const char*, StrCmp> Renderer::modelFilenameToResourcePath = std::map<const char*, const char*, StrCmp> {};
 std::map<std::string, std::string> Renderer::modelFilenameToResourcePath = std::map<std::string,std::string> {};
@@ -51,19 +58,22 @@ std::map<const char*, const char*, StrCmp> Renderer::textureFilenameToResourcePa
 // would be nice to just have these in a structure that's ready to go
 const std::vector<std::string> Renderer::defaultShapes {
     "plane",
-    "triangle"
+    "triangle",
+    "text",
 };
 
 const std::vector<size_t> Renderer::defaultShapesVOffsets {
     0,
     4,
     7,
+    11,
 };
 
 const std::vector<size_t> Renderer::defaultShapesIOffsets {
     0,
     6,
     9,
+   15,
 };
 
 
@@ -96,6 +106,25 @@ const std::vector<MBEVertex> Renderer::defaultShapesVertices {
     },
     {
         .position = {0.5, -0.8, -2.0, 1.0},
+        .color = {1.0, 1.0, 1.0, 1.0},
+    },
+    // Text - not sure how i'm going to handle scaling this though...
+    // you'll be rendering a texture on this, so you'll want
+    // to avoid distortion
+    {
+        .position = {-0.8, 0.8, 0.5, 1.0},
+        .color = {1.0, 1.0, 1.0, 1.0},
+    },
+    {
+        .position = {-0.8, -0.8, -10.0, 1.0},
+        .color = {1.0, 1.0, 1.0, 1.0},
+    },
+    {
+        .position = {0.8, -0.8, -10.0, 1.0},
+        .color = {1.0, 1.0, 1.0, 1.0},
+    },
+    {
+        .position = {0.8, 0.8, 0.5, 1.0},
         .color = {1.0, 1.0, 1.0, 1.0},
     },
     
@@ -195,7 +224,6 @@ _frame(0)
 
     
     // want to get the device from the layer, as well as the pixel format
-//    MTL::Device* pDevice = MTL::CreateSystemDefaultDevice();
     MTL::Library* pLibrary = _pDevice->newDefaultLibrary();
     MTL::Function* pVFunc = pLibrary->newFunction(NS::MakeConstantString("vertexShader"));
     MTL::Function* pFFunc = pLibrary->newFunction(NS::MakeConstantString("fragmentShader"));
@@ -204,8 +232,7 @@ _frame(0)
     depthStencilDescriptor->setDepthCompareFunction(MTL::CompareFunction::CompareFunctionLess);
     depthStencilDescriptor->setDepthWriteEnabled(true);
     
-    _pDeptchStencilState = _pDevice->newDepthStencilState(depthStencilDescriptor);
-    
+    _pDepthStencilState = _pDevice->newDepthStencilState(depthStencilDescriptor);
     
     MTL::RenderPipelineDescriptor* pRenderPLDescriptor = MTL::RenderPipelineDescriptor::alloc()->init();
     pRenderPLDescriptor->setLabel(NS::MakeConstantString("Triangle Render Pipeline"));
@@ -216,7 +243,42 @@ _frame(0)
     
     MTL::RenderPipelineState* _pPLState = _pDevice->newRenderPipelineState(pRenderPLDescriptor, &error);
     
+    // text stuff
+    MTL::Library* pTextLibrary = _pDevice->newDefaultLibrary();
+    MTL::Function* pTextVFunc = pTextLibrary->newFunction(NS::MakeConstantString("vertexShader"));
+    MTL::Function* pTextFFunc = pTextLibrary->newFunction(NS::MakeConstantString("textFragmentShader"));
+    
+    MTL::DepthStencilDescriptor* textDepthStencilDescriptor = MTL::DepthStencilDescriptor::alloc()->init();
+    textDepthStencilDescriptor->setDepthCompareFunction(MTL::CompareFunction::CompareFunctionLess);
+    textDepthStencilDescriptor->setDepthWriteEnabled(true);
+    
+    _pTextDepthStencilState = _pDevice->newDepthStencilState(depthStencilDescriptor);
+    
+    
+    MTL::RenderPipelineDescriptor* pTextRenderPLDescriptor = MTL::RenderPipelineDescriptor::alloc()->init();
+    pTextRenderPLDescriptor->setLabel(NS::MakeConstantString("Triangle Render Pipeline"));
+    pTextRenderPLDescriptor->setVertexFunction(pTextVFunc);
+    pTextRenderPLDescriptor->setFragmentFunction(pTextFFunc);
+    pTextRenderPLDescriptor->colorAttachments()->object(0)->setPixelFormat(pixelFormat);
+    pTextRenderPLDescriptor->colorAttachments()->object(0)->setBlendingEnabled(true);
+    pTextRenderPLDescriptor->colorAttachments()->object(0)->setSourceRGBBlendFactor(MTL::BlendFactorSourceAlpha);
+    pTextRenderPLDescriptor->colorAttachments()->object(0)->setDestinationRGBBlendFactor(MTL::BlendFactorOneMinusSourceAlpha);
+    pTextRenderPLDescriptor->colorAttachments()->object(0)->setRgbBlendOperation(MTL::BlendOperationAdd);
+    pTextRenderPLDescriptor->colorAttachments()->object(0)->setSourceAlphaBlendFactor(MTL::BlendFactorSourceAlpha);
+    pTextRenderPLDescriptor->colorAttachments()->object(0)->setDestinationAlphaBlendFactor(MTL::BlendFactorOneMinusSourceAlpha);
+    pTextRenderPLDescriptor->colorAttachments()->object(0)->setAlphaBlendOperation(MTL::BlendOperationAdd);
+    pTextRenderPLDescriptor->setDepthAttachmentPixelFormat( MTL::PixelFormat::PixelFormatDepth32Float );
+    
+    
+    MTL::RenderPipelineState* _pTextPLState = _pDevice->newRenderPipelineState(pTextRenderPLDescriptor, &error);
+    
     if ( !_pPLState )
+    {
+        __builtin_printf( "%s", error->localizedDescription()->utf8String() );
+        assert( false );
+    }
+    
+    if ( !_pTextPLState )
     {
         __builtin_printf( "%s", error->localizedDescription()->utf8String() );
         assert( false );
@@ -224,9 +286,13 @@ _frame(0)
 
     
     MTL::CommandQueue* commandQueue = _pDevice->newCommandQueue();
+    MTL::CommandQueue* textCommandQueue = _pDevice->newCommandQueue();
     
     _pPSO = _pPLState;
     _pCommandQueue = commandQueue;
+    
+    _pTextPSO = _pTextPLState;
+    _pTextCommandQueue = textCommandQueue;
     
     // sampler
     MTL::SamplerDescriptor* samplerDes = MTL::SamplerDescriptor::alloc()->init();
@@ -235,7 +301,9 @@ _frame(0)
     samplerDes->setMinFilter(MTL::SamplerMinMagFilterNearest);
     samplerDes->setMagFilter(MTL::SamplerMinMagFilterLinear);
     samplerDes->setMipFilter(MTL::SamplerMipFilterLinear);
+    
     _pSamplerState = _pDevice->newSamplerState(samplerDes);
+    _pTextSamplerState = _pDevice->newSamplerState(samplerDes);
     
 //    testBuffer = _pDevice->newBuffer(pictureVertices, 4*sizeof(MBEVertex), MTL::ResourceCPUCacheModeDefaultCache);
     
@@ -307,6 +375,27 @@ void Renderer::displayPictureBuffer() {
     
 }
 
+void Renderer::setFrameDataText() {
+    // text uniforms
+//    if(textUniforms == nullptr) {
+//        textUniforms = (FrameData)malloc(sizeof(FrameData));
+//    }
+    
+    // shouldn't do this every frame
+    if(_textUniforms == nullptr) {
+        _textUniforms = (FrameData*)malloc(sizeof(FrameData));
+    }
+    
+    CA::MetalLayer* layer = _drawable->layer();
+    
+    *_textUniforms = {
+        .modelViewMatrix = matrix_identity_float4x4,
+        .modelViewProjMatrix = matrix_orthographic_projection(0, _viewportSize.x, 0, _viewportSize.y),
+        .normalMatrix = matrix_identity_float3x3,
+        .color = {0, 0, 0, 1},
+    };
+}
+
 // would be nice to disable perspective projection when you want
 void Renderer::setFrameData(matrix_float4x4 modelMatrix, vector_float4 color)
 {
@@ -362,7 +451,9 @@ Renderer::~Renderer()
     _pVertexBufferMTL->release();
     _pVertexIndexBufferMTL->release();
     _pPSO->release();
+    _pTextPSO->release();
     _pCommandQueue->release();
+    _pTextCommandQueue->release();
     _pDevice->release();
 }
 
@@ -385,35 +476,102 @@ bool Renderer::drawCurrentScene(MTL::RenderCommandEncoder *rce) {
     return true;
 }
 
-// set up current command buffer
-void Renderer::startDraw(MTL::RenderPassDescriptor* renderPassDesc, CA::MetalDrawable* drawable) {
+void Renderer::preDraw(MTL::RenderPassDescriptor* renderPassDesc, CA::MetalDrawable* drawable) {
     _pool = NS::AutoreleasePool::alloc()->init();
     
     // let's also do this at a scale of 250
     // update uniforms as need be
+    // don't know how this should work
     _frame = (_frame + 1) % Renderer::maxFramesInFlight;
     
     // ======================= SETUP ============================
     _drawable = drawable;
+    //_commandBuffer = _pTextCommandQueue->commandBuffer();
     _commandBuffer = _pCommandQueue->commandBuffer();
     dispatch_semaphore_wait(_semaphore, DISPATCH_TIME_FOREVER);
-    
+
     Renderer* ptrRenderer = this;
     _commandBuffer->addCompletedHandler(^void(MTL::CommandBuffer *buffer) {
         dispatch_semaphore_signal(ptrRenderer->_semaphore);
     });
-    
-    _commandBuffer->setLabel(NS::MakeConstantString("commandBuffer"));
+
+    _commandBuffer->setLabel(NS::MakeConstantString("textCommandBuffer"));
     renderPassDesc->colorAttachments()->object(0)->setClearColor(MTL::ClearColor::Make(0.0, 0.5, 0.7, 1.0));
 
     _renderCommandEncoder = _commandBuffer->renderCommandEncoder(renderPassDesc);
-    
-    _renderCommandEncoder->setLabel(NS::MakeConstantString(("mycommandencoder")));
-    _renderCommandEncoder->setCullMode(MTL::CullMode::CullModeBack);
 
-    //    renderCommandEncoder->setTriangleFillMode(MTL::TriangleFillMode::TriangleFillModeLines);
+    _renderCommandEncoder->setLabel(NS::MakeConstantString(("textcommandencoder")));
+    _renderCommandEncoder->setCullMode(MTL::CullMode::CullModeNone);
+
+//    _renderCommandEncoder->setTriangleFillMode(MTL::TriangleFillMode::TriangleFillModeLines);
     _renderCommandEncoder->setFrontFacingWinding(MTL::Winding::WindingCounterClockwise);
-    _renderCommandEncoder->setDepthStencilState(_pDeptchStencilState);
+    
+//    _renderCommandEncoder->setFrontFacingWinding(MTL::Winding::WindingClockwise);
+    _renderCommandEncoder->setDepthStencilState(_pDepthStencilState);
+}
+
+// text drawing
+void Renderer::startDrawText(MTL::RenderPassDescriptor* renderPassDesc, CA::MetalDrawable* drawable) {
+    _renderCommandEncoder->setRenderPipelineState(_pTextPSO);
+}
+
+// now I have this objective c thing that's responsible for rendering, which I don't want
+void Renderer::addDrawCommandsText(TextMeshProxy* textMesh) {
+    setFrameDataText();
+    
+    _renderCommandEncoder->setVertexBuffer(textMesh->vertices, 0, 0);
+    _renderCommandEncoder->setVertexBytes(_textUniforms, sizeof(FrameData), 1);
+    // texture data from nsdata???
+    _renderCommandEncoder->setFragmentTexture(textMesh->texture, 0);
+    _renderCommandEncoder->setFragmentSamplerState(_pTextSamplerState, 0);
+    
+    _renderCommandEncoder->drawIndexedPrimitives(MTL::PrimitiveType::PrimitiveTypeTriangle,
+                                                    textMesh->indices->length() / sizeof(MBEIndex), // <- idk know about this
+                                                    MBEIndexType,
+                                                    textMesh->indices,
+                                                    0);
+}
+
+// need another command encoder so that a separate call
+// to endEncoding can made for the single allowed presentdrawable call
+void Renderer::endDrawText()  {
+    _renderCommandEncoder->endEncoding();
+ 
+    _commandBuffer->presentDrawable(_drawable);
+    _commandBuffer->commit();
+    
+    _textPool->release();
+}
+
+// set up current command buffer
+void Renderer::startDraw(MTL::RenderPassDescriptor* renderPassDesc, CA::MetalDrawable* drawable) {
+//    _pool = NS::AutoreleasePool::alloc()->init();
+//
+//    // let's also do this at a scale of 250
+//    // update uniforms as need be
+//    _frame = (_frame + 1) % Renderer::maxFramesInFlight;
+//
+//    // ======================= SETUP ============================
+//    _drawable = drawable;
+//    _commandBuffer = _pCommandQueue->commandBuffer();
+//    dispatch_semaphore_wait(_semaphore, DISPATCH_TIME_FOREVER);
+//
+//    Renderer* ptrRenderer = this;
+//    _commandBuffer->addCompletedHandler(^void(MTL::CommandBuffer *buffer) {
+//        dispatch_semaphore_signal(ptrRenderer->_semaphore);
+//    });
+//
+//    _commandBuffer->setLabel(NS::MakeConstantString("commandBuffer"));
+//    renderPassDesc->colorAttachments()->object(0)->setClearColor(MTL::ClearColor::Make(0.0, 0.5, 0.7, 1.0));
+//
+//    _renderCommandEncoder = _commandBuffer->renderCommandEncoder(renderPassDesc);
+//
+//    _renderCommandEncoder->setLabel(NS::MakeConstantString(("mycommandencoder")));
+//    _renderCommandEncoder->setCullMode(MTL::CullMode::CullModeBack);
+//
+//    //    renderCommandEncoder->setTriangleFillMode(MTL::TriangleFillMode::TriangleFillModeLines);
+//    _renderCommandEncoder->setFrontFacingWinding(MTL::Winding::WindingCounterClockwise);
+//    _renderCommandEncoder->setDepthStencilState(_pDepthStencilState);
 
     _renderCommandEncoder->setRenderPipelineState(_pPSO);
     // ==========================================================
@@ -425,6 +583,7 @@ void Renderer::endDraw() {
     _commandBuffer->presentDrawable(_drawable);
     _commandBuffer->commit();
     
+    _textPool->release();
     _pool->release();
 }
 
@@ -546,7 +705,7 @@ void Renderer::draw(MTL::RenderPassDescriptor* renderPassDesc, CA::MetalDrawable
     renderCommandEncoder->setCullMode(MTL::CullMode::CullModeBack);
 //    renderCommandEncoder->setTriangleFillMode(MTL::TriangleFillMode::TriangleFillModeLines);
     renderCommandEncoder->setFrontFacingWinding(MTL::Winding::WindingCounterClockwise);
-    renderCommandEncoder->setDepthStencilState(_pDeptchStencilState);
+    renderCommandEncoder->setDepthStencilState(_pDepthStencilState);
 
     renderCommandEncoder->setRenderPipelineState(_pPSO);
     // ==========================================================
