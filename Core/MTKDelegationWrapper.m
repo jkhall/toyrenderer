@@ -12,20 +12,24 @@
 #import "OBJParser.hpp"
 #import <Foundation/Foundation.h>
 #import <CoreFoundation/CoreFoundation.h>
+#import <QuartzCore/CoreAnimation.h>
 #import <MetalKit/MetalKit.h>
 #import <Metal/Metal.h>
 #import <vector>
 #import <map>
 #import "DelegateTest.h"
 #import "TextTypes.h"
+#import "BrickBreaker.hpp"
 
 #if defined(TARGET_IOS)
 #import <UIKit/UIKit.h>
 #import <CoreMotion/CoreMotion.h>
 #define PlatformFont UIFont
+#define PlatformImage UIImage
 #elif defined(TARGET_MACOS)
 #import <Cocoa/Cocoa.h>
 #define PlatformFont NSFont
+#define PlatformImage NSImage
 #endif
 
 @interface MTKDelegationWrapper : NSObject<MTKViewDelegate>
@@ -34,11 +38,13 @@
 -(void) generateMipmapsForTexture:(id<MTLTexture>) texture onQueue:(id<MTLCommandQueue>)queue;
 -(void) respondToTakePicture;
 -(void) rightMouseDragged:(NSEvent*)event;
+-(void) keyUp:(NSEvent*)event;
 -(uint8_t *) createTextBitmap;
 -(float *) createSignedDistanceField:(uint8_t*)imageData width:(NSUInteger)width height:(NSUInteger)height;
 -(float *) resampleDistanceField:(float *)distanceField width:(NSUInteger)width height:(NSUInteger)height scaleFactor:(NSUInteger)scaleFactor;
 -(void) buildFontAtlas;
 -(void) buildTextMesh;
+//-(void) updateBrickBreakerFrameInput:(int)input;
 
 @property (nonatomic, readwrite, assign) Renderer* renderer;
 @property Reducer *reducer;
@@ -49,6 +55,8 @@
 @property MTKView *view;
 @property uint8_t *textImageData;
 @property std::map<std::string, Scene*> sceneDictionary;
+@property id<MTLTexture> testTexture;
+@property NSArray *textures;
 // text things
 // MARK: TODO - Move this text shite
 @property NSArray *glyphDescriptors;
@@ -57,8 +65,15 @@
 @property FontAtlas *atlas;
 @property TextMesh *textMesh;
 @property id<MTLTexture> fontTexture;
-
+@property CGRect frame;
 // end text shite
+//@property CADisplayLink* link;
+
+// Brickbreaker Stuff
+@property NSDate* startTime;
+@property BrickBreaker *game;
+@property uint16_t frameInput;
+
 #if defined(TARGET_IOS)
 @property CMMotionManager* motion;
 @property CMAttitude* referenceAttitude;
@@ -85,7 +100,8 @@ static NSString *const TRGlyphDescriptorsKey = @"glyphDescriptors";
 static NSString *const FontName = @"Menlo Regular";
 static float           FontAtlasSize = 2048;
 static NSString *const TRSampleText = @"Tell me something good!";
-static float TRFontDisplaySize = 72;
+static float TRFontDisplaySize = 128;
+static float TextInset = 10;
 
 // glyph descriptor definition
 // no bueno...
@@ -124,6 +140,78 @@ static float TRFontDisplaySize = 72;
 
 @implementation MTKDelegationWrapper
 
+- (id<MTLTexture>) loadMetalTexture:(NSString*) filename withCommandQueue:(id<MTLDevice>)device {
+    // gonna go the core graphics route and see if that works as anticipated
+//    UIImage *image = [UIImage imageNamed:filename];
+    
+//    NSString* spotTex = @"spot_texture.png";
+//    NSArray *nameAndExtension = [spotTex componentsSeparatedByString:@"."];
+//    NSString *filepath = [[NSBundle mainBundle] pathForResource:nameAndExtension[0] ofType:nameAndExtension[1]];
+    
+    PlatformImage *image = [NSImage imageNamed:filename];
+    
+//    CGSize imageSize = CGSizeMake(image.size.width  * image.scale, image.size.height * image.scale);
+    CGSize imageSize = CGSizeMake(image.size.width, image.size.height);
+    const NSUInteger bytesPerPixel = 4;
+    const NSUInteger bytesPerRow = bytesPerPixel * imageSize.width;
+    uint8_t *data = [self dataFromImage:image];
+    
+    MTLTextureDescriptor *textureDescriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm width:imageSize.width height:imageSize.height mipmapped:NO];
+    textureDescriptor.usage = MTLTextureUsageShaderRead;
+    id<MTLTexture> texture = [device newTextureWithDescriptor:textureDescriptor];
+    
+    [texture setLabel:filename];
+    
+    MTLRegion region = MTLRegionMake2D(0, 0, imageSize.width, imageSize.height);
+    [texture replaceRegion:region mipmapLevel:0 withBytes:data bytesPerRow:bytesPerRow];
+    
+    free(data);
+    
+    return texture;
+}
+
+- (uint8_t *) dataFromImage:(PlatformImage *)image {
+    CGImageRef imageRef;
+    NSRect rect;
+#if defined(TARGET_IOS)
+    imageRef = image.CGImage;
+#else
+//    NSGetconte
+//    NSData *data = image.TIFFRepresentation;
+//    NSGraphicsContext *ctx = [NSGraphicsContext graphicsContextWithBitmapImageRep:[NSBitmapImageRep imageRepWithData:data]];
+    rect = NSMakeRect(0,0, image.size.width, image.size.height);
+    imageRef = [image CGImageForProposedRect:&rect context:NULL hints:NULL];
+#endif
+
+
+    const NSUInteger width = image.size.width;
+    const NSUInteger height = image.size.height;
+    CGColorSpaceRef colorSpaceRef = CGColorSpaceCreateDeviceRGB();
+    uint8_t *rawData = (uint8_t *)calloc(height*width*4, sizeof(uint8_t));
+    const NSUInteger bytesPerPixel = 4;
+    const NSUInteger bytesPerRow = bytesPerPixel * width;
+    const NSUInteger bitsPerComponent = 8;
+    CGContextRef context = CGBitmapContextCreate(rawData,
+                                                 width,
+                                                 height,
+                                                 bitsPerComponent,
+                                                 bytesPerRow,
+                                                 colorSpaceRef,
+                                                 kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+    
+    CGColorSpaceRelease(colorSpaceRef);
+    
+    CGContextTranslateCTM(context, 0, height);
+    CGContextScaleCTM(context, 1, -1);
+    
+    CGRect imageRect = CGRectMake(0, 0, width, height);
+    CGContextDrawImage(context, imageRect, imageRef);
+
+    
+    CGContextRelease(context);
+    
+    return rawData;
+}
 #if defined(TARGET_MACOS)
 - (void)rightMouseDragged:(NSEvent*)event {
 //    send the deltas to the renderer?
@@ -146,63 +234,90 @@ static float TRFontDisplaySize = 72;
     }
     _renderer->updateLookat(event.deltaX, event.deltaY); // just pass in deltas
 }
+
+- (void)keyUp:(NSEvent *)event {
+    // Events.h for keyCodes
+    switch(event.keyCode) {
+        // left arrow
+        case 0x7B:
+            break;
+        // right arrow
+        case 0x7C:
+            break;
+    }
+}
+
+- (void)keyDown:(NSEvent *)event {
+    // Events.h for keyCodes
+    switch(event.keyCode) {
+        // left arrow
+        case 0x7B:
+            _frameInput |= LeftArrow;
+            break;
+        // right arrow
+        case 0x7C:
+            _frameInput |= RightArrow;
+            break;
+    }
+    
+    NSLog(@"key is down");
+}
 #endif
 
 #if defined(TARGET_IOS)
-- (uint8_t *) dataFromImage:(UIImage *)image {
-    CGImageRef imageRef = image.CGImage;
-    
-    const NSUInteger width = CGImageGetWidth(imageRef);
-    const NSUInteger height = CGImageGetHeight(imageRef);
-    CGColorSpaceRef colorSpaceRef = CGColorSpaceCreateDeviceRGB();
-    uint8_t *rawData = (uint8_t *)calloc(height*width*4, sizeof(uint8_t));
-    const NSUInteger bytesPerPixel = 4;
-    const NSUInteger bytesPerRow = bytesPerPixel * width;
-    const NSUInteger bitsPerComponent = 8;
-    CGContextRef context = CGBitmapContextCreate(rawData,
-                                                 width,
-                                                 height,
-                                                 bitsPerComponent,
-                                                 bytesPerRow,
-                                                 colorSpaceRef,
-                                                 kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
-    
-    CGColorSpaceRelease(colorSpaceRef);
-    
-    CGContextTranslateCTM(context, 0, height);
-    CGContextScaleCTM(context, 1, -1);
-    
-    CGRect imageRect = CGRectMake(0, 0, width, height);
-    CGContextDrawImage(context, imageRect, imageRef);
-    
-    CGContextRelease(context);
-    
-    return rawData;
-}
-
-
-- (id<MTLTexture>) loadMetalTexture:(NSString*) filename withCommandQueue:(id<MTLCommandQueue>)queue {
-   // gonna go the core graphics route and see if that works as anticipated
-    UIImage *image = [UIImage imageNamed:filename];
-    
-    CGSize imageSize = CGSizeMake(image.size.width  * image.scale, image.size.height * image.scale);
-    const NSUInteger bytesPerPixel = 4;
-    const NSUInteger bytesPerRow = bytesPerPixel * imageSize.width;
-    uint8_t *data = [self dataFromImage:image];
-    
-    MTLTextureDescriptor *textureDescriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm width:imageSize.width height:imageSize.height mipmapped:NO];
-    textureDescriptor.usage = MTLTextureUsageShaderRead;
-    id<MTLTexture> texture = [[queue device] newTextureWithDescriptor:textureDescriptor];
-    
-    [texture setLabel:filename];
-    
-    MTLRegion region = MTLRegionMake2D(0, 0, imageSize.width, imageSize.height);
-    [texture replaceRegion:region mipmapLevel:0 withBytes:data bytesPerRow:bytesPerRow];
-    
-    free(data);
- 
-    return texture;
-}
+//- (uint8_t *) dataFromImage:(UIImage *)image {
+//    CGImageRef imageRef = image.CGImage;
+//
+//    const NSUInteger width = CGImageGetWidth(imageRef);
+//    const NSUInteger height = CGImageGetHeight(imageRef);
+//    CGColorSpaceRef colorSpaceRef = CGColorSpaceCreateDeviceRGB();
+//    uint8_t *rawData = (uint8_t *)calloc(height*width*4, sizeof(uint8_t));
+//    const NSUInteger bytesPerPixel = 4;
+//    const NSUInteger bytesPerRow = bytesPerPixel * width;
+//    const NSUInteger bitsPerComponent = 8;
+//    CGContextRef context = CGBitmapContextCreate(rawData,
+//                                                 width,
+//                                                 height,
+//                                                 bitsPerComponent,
+//                                                 bytesPerRow,
+//                                                 colorSpaceRef,
+//                                                 kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+//
+//    CGColorSpaceRelease(colorSpaceRef);
+//
+//    CGContextTranslateCTM(context, 0, height);
+//    CGContextScaleCTM(context, 1, -1);
+//
+//    CGRect imageRect = CGRectMake(0, 0, width, height);
+//    CGContextDrawImage(context, imageRect, imageRef);
+//
+//    CGContextRelease(context);
+//
+//    return rawData;
+//}
+//
+//- (id<MTLTexture>) loadMetalTexture:(NSString*) filename withCommandQueue:(id<MTLCommandQueue>)queue {
+//   // gonna go the core graphics route and see if that works as anticipated
+//    UIImage *image = [UIImage imageNamed:filename];
+//
+//    CGSize imageSize = CGSizeMake(image.size.width  * image.scale, image.size.height * image.scale);
+//    const NSUInteger bytesPerPixel = 4;
+//    const NSUInteger bytesPerRow = bytesPerPixel * imageSize.width;
+//    uint8_t *data = [self dataFromImage:image];
+//
+//    MTLTextureDescriptor *textureDescriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm width:imageSize.width height:imageSize.height mipmapped:NO];
+//    textureDescriptor.usage = MTLTextureUsageShaderRead;
+//    id<MTLTexture> texture = [[queue device] newTextureWithDescriptor:textureDescriptor];
+//
+//    [texture setLabel:filename];
+//
+//    MTLRegion region = MTLRegionMake2D(0, 0, imageSize.width, imageSize.height);
+//    [texture replaceRegion:region mipmapLevel:0 withBytes:data bytesPerRow:bytesPerRow];
+//
+//    free(data);
+//
+//    return texture;
+//}
 #endif
 
 -(void) buildFontAtlas {
@@ -228,7 +343,7 @@ static float TRFontDisplaySize = 72;
 
 -(void) buildTextMesh {
     // no idea about this...
-    CGRect textRect = CGRectInset(_view.frame, 10, 10);
+    CGRect textRect = CGRectInset(_frame, 10, 10);
     
     _textMesh = [[TextMesh alloc] initWithString:TRSampleText inRect:textRect withFontAtlas:_atlas atSize:TRFontDisplaySize device:_view.device];
 }
@@ -243,47 +358,38 @@ static float TRFontDisplaySize = 72;
     [buffer waitUntilCompleted];
 }
 
-- (instancetype)initWithView:(MTKView*) view {
+-(void) dealloc {
+    free(_scene);
+}
+
+- (instancetype)initWithView2:(MTKView*) view {
     self = [super init];
     
     _view = view;
+    _frame = CGRectInset(_view.frame, TextInset, TextInset);
+    
+    _startTime = [NSDate distantPast];
     
     NSLog(@"Window width: %f", _view.frame.size.width);
     NSLog(@"Window height: %f", _view.frame.size.height);
     
-    // want to allow scene selection
-    
-    // default scene
-    // how should we draw text in this context?
+    // MARK: Scene setup
     
     _defaultScene = (Scene *)malloc(sizeof(Scene));
-//    _defaultScene->rawModelNames[0] = "spot.obj";
-//    _defaultScene->rawModelNames[0] = "plane";
-    _defaultScene->rawModelNames[0] = "triangle";
-    
-//    _defaultScene->rawModelNames[1] = "plane"; // how might we put default geo in here
-    _defaultScene->modelIndices = std::vector<size_t> {
+    _defaultScene->rawModelNames[0] = "spot.obj";
+    _defaultScene->modelIndices = new std::vector<size_t> {
             0,
     };
     
-    vector_float3 vt = {0.0, 0.0, 0.0};
-    vector_float3 planet = {0.0, 0.0, -5.0};
-    
-    _defaultScene->transforms = std::vector<matrix_float4x4> {
+    _defaultScene->transforms = new std::vector<matrix_float4x4> {
         matrix_identity_float4x4,
-//        matrix_float4x4_translation(planet),
-//        matrix_float4x4_translation(vt),
-        // scale and translation
-
-    //        matrix_float4x4_translation(vt)
-    // matrix_identity_float4x4
     };
-
-    _defaultScene->colors = std::vector<vector_float4> {
-        (vector_float4){1.0, 0.0, 0.0, 1.0},
-        (vector_float4){0.0, 1.0, 0.0, 1.0},
-        (vector_float4){0.0, 1.0, 0.0, 1.0},
-    };
+    
+//    _defaultScene->textures[0] = (__bridge MTL::Texture*)[self loadMetalTexture:@"spot_texture.png" withCommandQueue:view.device];
+//    _testTexture = [self loadMetalTexture:@"spot_texture.png" withCommandQueue:view.device];
+    _textures = @[
+        [self loadMetalTexture:@"spot_texture.png" withCommandQueue:view.device],
+    ];
     
     _sceneDictionary = {
         {"Default", _defaultScene},
@@ -292,6 +398,8 @@ static float TRFontDisplaySize = 72;
     if(_scene == nil) {
         _scene = _defaultScene;
     }
+    
+//    link = [[CADisplayLink displayLinkWithTarget:self selector:#(update:)];
 
     // map modelFilenames and textureFilenames to actual resource paths
     for(int i = 0; i < sizeof(Renderer::modelFilenames)/sizeof(char *); i++){
@@ -316,19 +424,12 @@ static float TRFontDisplaySize = 72;
     
     Renderer::dictsLoaded = true;
 
-    // don't do this here i think or at least, not on this thread?
-    // can I do this on another thread
-//    [self loadScene:_scene];
-
     view.framebufferOnly = NO; // allows you to read the underlying texture in the drawable
 
-    // get resources
-//    NSMutableArray *resourcePaths = [[NSMutableArray alloc] init];
     std::vector<const char*> resourcePaths;
     std::vector<const char*> texturePathsCPP;
 
     // array of "top level" file names
-
     NSString *filePath = [[NSBundle mainBundle] pathForResource:@"spot" ofType: @"obj"];
     resourcePaths.push_back(filePath.UTF8String);
 
@@ -344,15 +445,8 @@ static float TRFontDisplaySize = 72;
     view.depthStencilPixelFormat = MTLPixelFormatDepth32Float;
     [view setClearDepth:1.0f];
 
-//    // MARK: - Put extract this into function that can be called on a scene
-//    // How do we do this when, we cant know what the scene is, until we consist the renderer?
-//    // Doesn't the renderer have to reach out to this sort of code?
-//    id<MTLCommandQueue> queue = [view.device newCommandQueue];
-//
-//    queue = [view.device newCommandQueue];
-//
     self.renderer = new Renderer((__bridge_retained MTL::Device*)view.device, (NS::UInteger)view.colorPixelFormat, _scene, view.frame.size.width, view.frame.size.height);
-//
+    
 #if defined(TARGET_OS)
     // motion
     self.motion = [[CMMotionManager alloc] init];
@@ -377,57 +471,32 @@ static float TRFontDisplaySize = 72;
 //    // MARK: Todo - Create the scene here...
 //    // how should we really do scene selection....
     self.reducer = [[Reducer alloc] initWithScene:self.defaultScene];
-    
-    // i want to have the font by this point
-    
-    // text stuff
-    // possibly shouldn't be doing this in the initializer
-    
+
     NSString *rawFontName = @"Menlo Regular";
     
-    [self createTextureData]; // should be off the UI thread
+//    [self createTextureData]; // should be off the UI thread
 
-    // should not be doing this in multiple places
-//    NSUInteger boundsWidth = 4096;
-//    NSUInteger boundsHeight = 4096;
-//    NSUInteger textureSize = 4096;
-//    NSUInteger fontAtlasSize = 4096;
-//
-//    CGRect rect = CGRectMake(0, 0, boundsWidth, boundsHeight);
-//
-//    NSInteger scaleFactor = fontAtlasSize / textureSize;
+    _game = new BrickBreaker((__bridge MTL::Device*)view.device, view.frame.size.width, view.frame.size.height);
     
-//    float spread = [self estimateGlyphWidth:(__bridge NSFont*)_fontRef];
-//    
-//    uint8_t* imageData = [self createTextBitmap];
-//    float* sdf = [self createSignedDistanceField:imageData width:4096 height:4096];
-//    float *scaledField = [self resampleDistanceField:sdf width:boundsWidth height:boundsHeight scaleFactor:scaleFactor];
-//    
-//    free(sdf);
-//    
-//    uint8_t* qImageData = [self quantizeDistanceField:scaledField width:4096 height:4096 normalizationFactor:spread];
-//    
-//    free(scaledField);
-//    
-//    NSInteger texByteCount = textureSize * textureSize;
-//    
-//    _atlas = [[FontAtlas alloc] init];
-//    _atlas.textureData = [NSData dataWithBytesNoCopy:qImageData length:texByteCount freeWhenDone:YES];
-//
     return self;
 }
 
 // for text...
 -(void) createTextureData {
-    [self buildFontAtlas];
-    [self buildTextMesh];
+    dispatch_queue_t q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0);
     
-    _textMeshProxy = (TextMeshProxy *)malloc(sizeof(TextMeshProxy));
-    *_textMeshProxy = TextMeshProxy { .vertices = (__bridge MTL::Buffer*)_textMesh.textVertexBuffer, .indices = (__bridge MTL::Buffer*)_textMesh.textIndexBuffer, .texture = (__bridge MTL::Texture*)_fontTexture};
+    dispatch_async(q, ^{
+        [self buildFontAtlas];
+        [self buildTextMesh];
+        
+        _textMeshProxy = (TextMeshProxy *)malloc(sizeof(TextMeshProxy));
+        *_textMeshProxy = TextMeshProxy { .vertices = (__bridge MTL::Buffer*)_textMesh.textVertexBuffer, .indices = (__bridge MTL::Buffer*)_textMesh.textIndexBuffer, .texture = (__bridge MTL::Texture*)_fontTexture};
+    });
 }
 
 - (void)drawInMTKView:(nonnull MTKView *)view {
     MTLRenderPassDescriptor* rpd = view.currentRenderPassDescriptor;
+    
     
 //    NSLog(@"running draw func"); <- seems to be running
     
@@ -441,64 +510,85 @@ static float TRFontDisplaySize = 72;
     // maybe what we really want is something more processed using this
     // getting processed device motion data page on apple developer
     // MARK: Todo - cmmotion should actually be put into it's own system...
-    CMAttitude *attitude = self.motion.deviceMotion.attitude;
-    if(attitude != nullptr) {
-        self.renderer->setEuler(attitude.yaw, attitude.pitch, attitude.roll);
-    }
+//    CMAttitude *attitude = self.motion.deviceMotion.attitude;
+//    if(attitude != nullptr) {
+//        self.renderer->setEuler(attitude.yaw, attitude.pitch, attitude.roll);
+//    }
 #endif
     // MARK: Run updates here
     // physics
     // other kinds of updates
     
-    _renderer->updateLookat(0.01, 0.0);
+//    _renderer->updateLookat(0.01, 0.0);
+//
+//    if(!_scene->isLoaded) {
+////        NSLog(@"scene not loaded");
+//        // the scene has already been passed to the renderer
+//        if(view.subviews.count == 0) {
+//            NSRect rect = NSMakeRect((_view.frame.size.width / 2) - 200, _view.frame.size.height / 2, 200, 20);
+//            _sceneUnloadedText = [[NSTextField alloc] initWithFrame:rect];
+//            _sceneUnloadedText.stringValue = @"Scene not loaded";
+//            [view addSubview:_sceneUnloadedText];
+//
+//            NSRect btnFrame = NSMakeRect(_view.frame.size.width / 2, (_view.frame.size.height / 2) - 50, 200, 20);
+//            _loadDefaultSceneButton = [NSButton buttonWithTitle:@"Load Scene" target:self action:@selector(handleDefaultLoadScene:)];
+//            _loadDefaultSceneButton.frame = btnFrame;
+//            [view addSubview:_loadDefaultSceneButton];
+//        }
+//        return;
+//    }
+//
+//    if(view.subviews.count == 2) {
+//        [_sceneUnloadedText removeFromSuperview];
+//        [_loadDefaultSceneButton removeFromSuperview];
+//    }
     
-    if(!_scene->isLoaded) {
-//        NSLog(@"scene not loaded");
-        // the scene has already been passed to the renderer
-        if(view.subviews.count == 0) {
-            NSRect rect = NSMakeRect((_view.frame.size.width / 2) - 200, _view.frame.size.height / 2, 200, 20);
-            _sceneUnloadedText = [[NSTextField alloc] initWithFrame:rect];
-            _sceneUnloadedText.stringValue = @"Scene not loaded";
-            [view addSubview:_sceneUnloadedText];
-
-            NSRect btnFrame = NSMakeRect(_view.frame.size.width / 2, (_view.frame.size.height / 2) - 50, 200, 20);
-            _loadDefaultSceneButton = [NSButton buttonWithTitle:@"Load Scene" target:self action:@selector(handleDefaultLoadScene:)];
-            _loadDefaultSceneButton.frame = btnFrame;
-            [view addSubview:_loadDefaultSceneButton];
-        }
+    if(!_game->IsLoaded()) {
         return;
     }
     
-    if(view.subviews.count == 2) {
-//        [view.subviews[0] removeFromSuperview]; // yeah?
-//        [view.subviews[1] removeFromSuperview];
-        
-        [_sceneUnloadedText removeFromSuperview];
-        [_loadDefaultSceneButton removeFromSuperview];
+    // init if necessary
+    if(_startTime == [NSDate distantPast]) {
+        _startTime = [NSDate now];
     }
     
-    _renderer->preDraw((__bridge MTL::RenderPassDescriptor*)rpd, (__bridge CA::MetalDrawable*)view.currentDrawable);
+    double timeDiff = [[NSDate now] timeIntervalSinceDate:_startTime];
+    
+    int curFrame = _renderer->preDraw((__bridge MTL::RenderPassDescriptor*)rpd, (__bridge CA::MetalDrawable*)view.currentDrawable, _game->clearColor);
+    
+    _renderer->startDraw2D();
+    _game->Update(timeDiff, _frameInput);
+    _game->CopyInstanceData(curFrame);
+    _game->Draw(_renderer);
+    _renderer->endDraw();
+    _frameInput = 0; // clear frameInput
+    _startTime = [NSDate now];
 //    _renderer->startDraw((__bridge MTL::RenderPassDescriptor*)rpd, (__bridge CA::MetalDrawable*)view.currentDrawable);
-//    for(int i = 0; i < _scene->modelIndices.size(); i++){
+//    for(int i = 0; i < _scene->modelIndices->size(); i++){
 //        // the renderer has a _scene reference. why not just pass in the object index
 //        // this is probably slow as shit because ptr following, etc...
 //        // you do not want to load an unloaded scene
 //        // would like for the renderer to fall back to something
-//        _renderer->addDrawCommands(_scene->vertexOffsets[_scene->modelIndices[i]],
-//                                   _scene->indexOffsets[_scene->modelIndices[i]],
-//                                   _scene->indexOffsets[_scene->modelIndices[i] + 1] - _scene->indexOffsets[_scene->modelIndices[i]],
-//                                   nullptr,
-//                                   _scene->colors[i],
+//        size_t idx = _scene->modelIndices->at(i);
+////        MTL::Texture* tex = _scene->textures[idx];
+//        _renderer->addDrawCommands(_scene->vertexOffsets->at(_scene->modelIndices->at(i)),
+//                                   _scene->indexOffsets->at(_scene->modelIndices->at(i)),
+//                                   _scene->indexOffsets->at(_scene->modelIndices->at(i) + 1) - _scene->indexOffsets->at(_scene->modelIndices->at(i)),
+////                                   (__bridge MTL::Texture*)_testTexture,
+////                                   _scene->textures[idx],
+//                                   (__bridge MTL::Texture*)_textures[idx], // performance penalty here?
+//                                   _scene->colors ? _scene->colors->at(i) : vector_float4 {0, 0, 0, 1},
 //                                   [_reducer tick:i]);
 //    }
     
     // text
-    _renderer->startDrawText((__bridge MTL::RenderPassDescriptor*)rpd, (__bridge CA::MetalDrawable*)view.currentDrawable);
-    _renderer->addDrawCommandsText(_textMeshProxy); // no bridge call?
-//    _renderer->endDrawText();
+    // really we want to know if the font atlas is ready to go, seemingly we'll be creating text meshes on the fly
+//    if(_textMeshProxy){
+//        _renderer->startDrawText((__bridge MTL::RenderPassDescriptor*)rpd, (__bridge CA::MetalDrawable*)view.currentDrawable);
+//        _renderer->addDrawCommandsText(_textMeshProxy); // no bridge call?
+//    }
     
-    
-    _renderer->endDraw(); // drawable can only be presented once
+//    _renderer->endDraw(); // drawable can only be presented once
     // should hand the transform off to the draw call
     // that said it should really be a set of transforms for all the objects
     
@@ -513,18 +603,23 @@ static float TRFontDisplaySize = 72;
 // what an actually insane bug
 - (void) loadScene:(Scene *)scene {
     
-    dispatch_queue_t q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_LOW, 0);
+    dispatch_queue_t q = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
     
     dispatch_async(q, ^{
-        LoadModelDataFromScene(scene, (__bridge MTL::Device*)_view.device);
-        scene->isLoaded = true;        
+        // this is really for objs
+        LoadModelDataFromScene(scene, (__bridge MTL::Device*)self.view.device);
+        // i think that otherwise we want to call load on something like a "Game" object
+        
     });
     
     
     // MARK: Textures... load them into the scene
     
     // gonna want to also check if the loading failed right?
-    
+}
+
+- (void)updateBrickBreakerFrameInput:(int)frameInput {
+    _frameInput |= frameInput;
 }
 
 
@@ -537,7 +632,12 @@ static float TRFontDisplaySize = 72;
 - (void)mtkView:(nonnull MTKView *)view drawableSizeWillChange:(CGSize)size {
     // not sure what to do here yet, with setting the viewport dimensions
     NSLog(@"setting viewport dimensions");
-    self.renderer->setViewportSize(size.width, size.height);
+    self.renderer->setViewportSize(_view.frame.size.width, _view.frame.size.height);
+    self.frame = _view.frame;
+    
+    if(_game != nullptr) {
+        _game->UpdateSizes(_view.frame.size.width, _view.frame.size.height);
+    }
 }
 
 - (IBAction) handleDefaultLoadScene:(NSObject *) sender {

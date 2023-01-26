@@ -142,7 +142,16 @@ static float TRFontAtlasSize = 4096;
     NSMutableArray *mutableGlyphs = (NSMutableArray*)_glyphDescriptors;
     [mutableGlyphs removeAllObjects];
     
-    // not working
+    // MARK: Trying to get higher resolution texture
+//    NSString *sampleStr = @"abcdefghijklmnopqrztuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!.,";
+//    NSAttributedString *attrStr = [[NSAttributedString alloc] initWithString:sampleStr];
+//    [attrStr setValue:_font.displayName forKey:@"font"]; // maybe?
+//    CTLineRef lines = CTLineCreateWithAttributedString((__bridge CFMutableAttributedStringRef)attrStr);
+//    CFArrayRef arr = CTLineGetGlyphRuns(lines);
+    // ------------------------------------------------
+    
+    // i would have to call this inside of the enumeration from text mesh... I think
+    // "this" meaning the content of the for loop only
     for(CGGlyph g = 0; g < glyphCount; g++) {
         // mark up the bitmap
         CGRect boundingRect;

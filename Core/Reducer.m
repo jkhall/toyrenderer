@@ -30,7 +30,7 @@
 - (matrix_float4x4) tick:(size_t)objectIndex {
  
     // for now would actually take other systems into account
-    return _scene->transforms[objectIndex];
+    return _scene->transforms->at(objectIndex);
 //    return matrix_identity_float4x4;
 }
 

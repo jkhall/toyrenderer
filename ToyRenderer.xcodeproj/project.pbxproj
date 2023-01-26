@@ -51,6 +51,7 @@
 		BC49F2BC28E7CC7400AEB777 /* Reducer.m in Sources */ = {isa = PBXBuildFile; fileRef = BC49F2BB28E7CC7400AEB777 /* Reducer.m */; };
 		BC49F2C028E8948500AEB777 /* Brain.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BC49F2BE28E8948500AEB777 /* Brain.cpp */; };
 		BC49F2C328E8949100AEB777 /* Physics.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BC49F2C128E8949100AEB777 /* Physics.cpp */; };
+		BC5C4426293EB9E600A9746F /* BrickBreaker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BC5C4424293EB9E600A9746F /* BrickBreaker.cpp */; };
 		BC5F2E23292068B40036750E /* TextMesh.m in Sources */ = {isa = PBXBuildFile; fileRef = BC5F2E22292068B40036750E /* TextMesh.m */; };
 		BC5F2E252920698E0036750E /* FontAtlas.m in Sources */ = {isa = PBXBuildFile; fileRef = BC5F2E242920698E0036750E /* FontAtlas.m */; };
 		BC61D8112884F6B800CA70BE /* teapot.obj in Resources */ = {isa = PBXBuildFile; fileRef = BC61D8102884F6B800CA70BE /* teapot.obj */; };
@@ -58,6 +59,7 @@
 		BC6907C7292089D800F74FE2 /* TextMesh.m in Sources */ = {isa = PBXBuildFile; fileRef = BC5F2E22292068B40036750E /* TextMesh.m */; };
 		BC6907C8292089DB00F74FE2 /* FontAtlas.m in Sources */ = {isa = PBXBuildFile; fileRef = BC5F2E242920698E0036750E /* FontAtlas.m */; };
 		BC6907C9292089DC00F74FE2 /* FontAtlas.m in Sources */ = {isa = PBXBuildFile; fileRef = BC5F2E242920698E0036750E /* FontAtlas.m */; };
+		BC6A28DE2931CE6300F02F7E /* spot_texture.png in Resources */ = {isa = PBXBuildFile; fileRef = BC37DE2A28906F0500D1D8C0 /* spot_texture.png */; };
 		BC6D0378290465E700C10D47 /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = BC266B0C28693DC0002BB5CF /* Shaders.metal */; };
 		BC6F232C288EBF8D000CB7AE /* TextureLoader.m in Sources */ = {isa = PBXBuildFile; fileRef = BC6F232B288EBF8D000CB7AE /* TextureLoader.m */; };
 		BC7E54AA28F5042500A9BA55 /* Reducer.m in Sources */ = {isa = PBXBuildFile; fileRef = BC49F2BB28E7CC7400AEB777 /* Reducer.m */; };
@@ -76,6 +78,7 @@
 		BCB664692903BB170001BA5B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BCB664682903BB170001BA5B /* Assets.xcassets */; };
 		BCB6646C2903BB170001BA5B /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = BCB6646A2903BB170001BA5B /* Main.storyboard */; };
 		BCB6646E2903BB170001BA5B /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = BCB6646D2903BB170001BA5B /* main.m */; };
+		BCBB5D20297793DC0041FD23 /* GraphicsView.m in Sources */ = {isa = PBXBuildFile; fileRef = BCBB5D1E297793D80041FD23 /* GraphicsView.m */; };
 		BCC89473288F734D00FB2DB0 /* DelegateTest.m in Sources */ = {isa = PBXBuildFile; fileRef = BCC89472288F734D00FB2DB0 /* DelegateTest.m */; };
 		BCCFA07528F496B700081389 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = BCCFA07428F496B700081389 /* AppDelegate.m */; };
 		BCCFA07728F496B800081389 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BCCFA07628F496B800081389 /* Assets.xcassets */; };
@@ -83,6 +86,8 @@
 		BCCFA07C28F496B800081389 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = BCCFA07B28F496B800081389 /* main.m */; };
 		BCCFA08C28F4D1E200081389 /* MainWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = BCCFA08A28F4D1E200081389 /* MainWindowController.m */; };
 		BCCFA08D28F4D1E200081389 /* MainWindowController.xib in Resources */ = {isa = PBXBuildFile; fileRef = BCCFA08B28F4D1E200081389 /* MainWindowController.xib */; };
+		BCE5ACCF2956862B00212BDE /* BrickBreaker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BC5C4424293EB9E600A9746F /* BrickBreaker.cpp */; };
+		BCE5ACD02956862C00212BDE /* BrickBreaker.cpp in Sources */ = {isa = PBXBuildFile; fileRef = BC5C4424293EB9E600A9746F /* BrickBreaker.cpp */; };
 		BCFB6502290F100F003175AC /* TextRenderer.m in Sources */ = {isa = PBXBuildFile; fileRef = BCFB6501290F100F003175AC /* TextRenderer.m */; };
 /* End PBXBuildFile section */
 
@@ -214,6 +219,8 @@
 		BC49F2BF28E8948500AEB777 /* Brain.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Brain.hpp; sourceTree = "<group>"; };
 		BC49F2C128E8949100AEB777 /* Physics.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = Physics.cpp; sourceTree = "<group>"; };
 		BC49F2C228E8949100AEB777 /* Physics.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = Physics.hpp; sourceTree = "<group>"; };
+		BC5C4424293EB9E600A9746F /* BrickBreaker.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = BrickBreaker.cpp; sourceTree = "<group>"; };
+		BC5C4425293EB9E600A9746F /* BrickBreaker.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = BrickBreaker.hpp; sourceTree = "<group>"; };
 		BC5F2E22292068B40036750E /* TextMesh.m */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; path = TextMesh.m; sourceTree = "<group>"; };
 		BC5F2E242920698E0036750E /* FontAtlas.m */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; path = FontAtlas.m; sourceTree = "<group>"; };
 		BC61D8102884F6B800CA70BE /* teapot.obj */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = teapot.obj; sourceTree = "<group>"; };
@@ -221,7 +228,7 @@
 		BC6F232B288EBF8D000CB7AE /* TextureLoader.m */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; path = TextureLoader.m; sourceTree = "<group>"; };
 		BC6F232D288EBFA3000CB7AE /* TextureLoader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TextureLoader.h; sourceTree = "<group>"; };
 		BC9CE31A28DD6F9400EDDF22 /* Scene.hpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; path = Scene.hpp; sourceTree = "<group>"; };
-		BCA75D0E28EE50EB00D13302 /* Utils.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; path = Utils.h; sourceTree = "<group>"; };
+		BCA75D0E28EE50EB00D13302 /* Utils.hpp */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.h; path = Utils.hpp; sourceTree = "<group>"; };
 		BCB664602903BB170001BA5B /* MetalMac2.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MetalMac2.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BCB664622903BB170001BA5B /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		BCB664632903BB170001BA5B /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
@@ -231,6 +238,8 @@
 		BCB6646B2903BB170001BA5B /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		BCB6646D2903BB170001BA5B /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		BCB6646F2903BB170001BA5B /* MetalMac2.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MetalMac2.entitlements; sourceTree = "<group>"; };
+		BCBB5D1E297793D80041FD23 /* GraphicsView.m */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.objcpp; path = GraphicsView.m; sourceTree = "<group>"; };
+		BCBB5D21297794890041FD23 /* GraphicsView.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; path = GraphicsView.h; sourceTree = "<group>"; };
 		BCC89472288F734D00FB2DB0 /* DelegateTest.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = DelegateTest.m; sourceTree = "<group>"; };
 		BCC89474288F745E00FB2DB0 /* DelegateTest.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DelegateTest.h; sourceTree = "<group>"; };
 		BCCFA07128F496B700081389 /* MetalMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MetalMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -522,7 +531,7 @@
 				BCFB65032919F9A2003175AC /* TextTypes.h */,
 				BC5F2E242920698E0036750E /* FontAtlas.m */,
 				BC5F2E22292068B40036750E /* TextMesh.m */,
-				BCA75D0E28EE50EB00D13302 /* Utils.h */,
+				BCA75D0E28EE50EB00D13302 /* Utils.hpp */,
 				BC266B0E28694229002BB5CF /* AAPLShaderTypes.h */,
 				BC266B0C28693DC0002BB5CF /* Shaders.metal */,
 				BC49F2BB28E7CC7400AEB777 /* Reducer.m */,
@@ -531,9 +540,13 @@
 				BC49F2BE28E8948500AEB777 /* Brain.cpp */,
 				BC49F2BF28E8948500AEB777 /* Brain.hpp */,
 				BC49F2C128E8949100AEB777 /* Physics.cpp */,
+				BC5C4424293EB9E600A9746F /* BrickBreaker.cpp */,
+				BC5C4425293EB9E600A9746F /* BrickBreaker.hpp */,
 				BC49F2C228E8949100AEB777 /* Physics.hpp */,
 				BC266A862869193A002BB5CF /* ViewController.h */,
 				BC266A872869193A002BB5CF /* ViewController.m */,
+				BCBB5D1E297793D80041FD23 /* GraphicsView.m */,
+				BCBB5D21297794890041FD23 /* GraphicsView.h */,
 				BC266B0228692427002BB5CF /* MTKDelegationWrapper.h */,
 				BC266B0328692427002BB5CF /* MTKDelegationWrapper.m */,
 				BC37DE2928906F0500D1D8C0 /* spot */,
@@ -671,6 +684,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BC375E43290461F0005582B4 /* spot.obj in Resources */,
+				BC6A28DE2931CE6300F02F7E /* spot_texture.png in Resources */,
 				BCB664692903BB170001BA5B /* Assets.xcassets in Resources */,
 				BCB6646C2903BB170001BA5B /* Main.storyboard in Resources */,
 			);
@@ -698,6 +712,7 @@
 				BC49F2BC28E7CC7400AEB777 /* Reducer.m in Sources */,
 				BC49F2C328E8949100AEB777 /* Physics.cpp in Sources */,
 				BC266B0D28693DC0002BB5CF /* Shaders.metal in Sources */,
+				BC5C4426293EB9E600A9746F /* BrickBreaker.cpp in Sources */,
 				BC266A882869193A002BB5CF /* ViewController.m in Sources */,
 				BC266AFE2869199C002BB5CF /* Renderer.cpp in Sources */,
 				BC266A822869193A002BB5CF /* AppDelegate.m in Sources */,
@@ -718,10 +733,12 @@
 				BC375E4229045DD0005582B4 /* Physics.cpp in Sources */,
 				BC375E3F29045DC0005582B4 /* Renderer.cpp in Sources */,
 				BC375E4029045DC8005582B4 /* Reducer.m in Sources */,
+				BCE5ACD02956862C00212BDE /* BrickBreaker.cpp in Sources */,
 				BC6907C6292089D700F74FE2 /* TextMesh.m in Sources */,
 				BCB664672903BB170001BA5B /* NotViewController.m in Sources */,
 				BC6D0378290465E700C10D47 /* Shaders.metal in Sources */,
 				BC99D66E2903BE5000D61C06 /* MTKDelegationWrapper.m in Sources */,
+				BCBB5D20297793DC0041FD23 /* GraphicsView.m in Sources */,
 				BCFB6502290F100F003175AC /* TextRenderer.m in Sources */,
 				BCB6646E2903BB170001BA5B /* main.m in Sources */,
 				BC99D66D2903BE3F00D61C06 /* ViewController.m in Sources */,
@@ -739,6 +756,7 @@
 				BC6907C8292089DB00F74FE2 /* FontAtlas.m in Sources */,
 				BCCFA07C28F496B800081389 /* main.m in Sources */,
 				BC7E54AA28F5042500A9BA55 /* Reducer.m in Sources */,
+				BCE5ACCF2956862B00212BDE /* BrickBreaker.cpp in Sources */,
 				BC6907C7292089D800F74FE2 /* TextMesh.m in Sources */,
 				BC7E54AC28F5045500A9BA55 /* Renderer.cpp in Sources */,
 				BC4753A128F4F890000E8962 /* MTKDelegationWrapper.m in Sources */,
@@ -825,7 +843,7 @@
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_NO_COMMON_BLOCKS = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
@@ -882,7 +900,7 @@
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_NO_COMMON_BLOCKS = NO;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;

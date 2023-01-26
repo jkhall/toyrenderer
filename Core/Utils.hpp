@@ -22,4 +22,8 @@ typedef struct {
     MTL::Texture* texture;
 } TextMeshProxy;
 
+inline float lerp1D(float srcX, float dstX, float percent) {
+    return srcX + (dstX - srcX) * percent;
+}
+
 #endif /* Utils_h */

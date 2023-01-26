@@ -17,27 +17,46 @@
 #include <vector>
 #include <objc/runtime.h>
 #include "Scene.hpp"
-#include "Utils.h"
+#include "Utils.hpp"
 #include <map>
 
 const MTL::IndexType MBEIndexType = MTL::IndexTypeUInt16;
+
+// the "type" is for looking up a specific model, ie set of vertices, indices
+typedef struct {
+    int type;
+    int index;
+    bool show;
+} Renderable;
+
+typedef struct {
+    vector_float4 trans;
+    vector_float4 color;
+} Transform;
 
 class Renderer
 {
     public:
         Renderer(MTL::Device*, NS::UInteger, Scene *scene, float width, float height);
         ~Renderer();
-        void preDraw(MTL::RenderPassDescriptor* renderPassDesc, CA::MetalDrawable* drawable);
+    int preDraw(MTL::RenderPassDescriptor* renderPassDesc, CA::MetalDrawable* drawable, vector_float4 color = vector_float4 {0, 0, 0, 1});
+        void preDraw2D(MTL::RenderPassDescriptor* renderPassDesc, CA::MetalDrawable* drawable);
         void draw(MTL::RenderPassDescriptor* renderPassDesc, CA::MetalDrawable* drawable, NS::Integer preferredFramesPerSecond);
         bool drawCurrentScene(MTL::RenderCommandEncoder*);
-        void startDrawText(MTL::RenderPassDescriptor*, CA::MetalDrawable*);
+        void addDrawCommandsForRenderable(Scene *scene, Renderable renderable);
+        void drawRenderablesWithScene(Scene *scene, Renderable *renderables, int renderableCount);
+        void startDraw2D();
+        void endDraw2D();
+        void addDrawCommands2D(size_t vertexOffset, size_t indexOffset, size_t indexCount, MTL::Texture* texture, vector_float4 color, matrix_float4x4 transform);
+        void startDrawText();
         void endDrawText();
         void addDrawCommandsText(TextMeshProxy* textMesh);
-        void startDraw(MTL::RenderPassDescriptor*, CA::MetalDrawable*);
+        void startDraw();
         void endDraw();
         void addDrawCommands(size_t vertexOffset, size_t indexOffset, size_t indexCount, MTL::Texture* texture, vector_float4 color, matrix_float4x4 transform);
         void setFrameData(matrix_float4x4, vector_float4);
-    void setFrameDataText();
+        void setFrameDataText();
+        void setFrameData2D(matrix_float4x4);
         void setViewportSize(uint x, uint y);
         void addModel(std::string modelPath);
         void buildFrameData();
@@ -50,7 +69,8 @@ class Renderer
         void updateLookat(float deltaX, float deltaY);
         void copyToPictureBuffer(MTL::Texture* tex, MTL::CommandBuffer *commandBuffer); // get's texture ready for display
         void displayPictureBuffer();
-        
+        vector_float2 getViewport();
+    
         static bool dictsLoaded;
     
         void togglePicture();
@@ -71,6 +91,8 @@ class Renderer
         static const char* textureFilenames[1];
     
         static const FrameData textStaticFrameData;
+    
+        int renderableCount;
 
     private:
         MTL::Device* _pDevice;
@@ -78,6 +100,7 @@ class Renderer
         MTL::CommandQueue *_pTextCommandQueue;
         MTL::RenderPipelineState* _pPSO; // pipeline state object
         MTL::RenderPipelineState* _pTextPSO; // pipeline state object for text, possibly more general 2D things...?
+        MTL::RenderPipelineState* _p2DPSO;
         MTL::Buffer* _pVertices;
         MTL::Buffer* _pColors;
         MTL::Buffer* _pCubeVertices;
@@ -105,6 +128,9 @@ class Renderer
     
         // Text
         FrameData *_textUniforms;
+    
+        // 2D
+        FrameData *_2DUniforms;
     
         // Scene
         Scene *_pScene;

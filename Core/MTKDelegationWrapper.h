@@ -17,9 +17,12 @@
 
 @interface MTKDelegationWrapper: NSObject<MTKViewDelegate>
 -(instancetype) initWithView:(MTKView*)view;
+-(instancetype) initWithView2:(MTKView*)view;
 -(void) generateMipmapsForTexture:(id<MTLTexture>) texture onQueue:(id<MTLCommandQueue>)queue;
 -(void) respondToTakePicture;
-- (void)rightMouseDragged:(NSEvent*)event;
+-(void) rightMouseDragged:(NSEvent*)event;
+-(void) keyDown:(NSEvent *)event;
+-(void) updateBrickBreakerFrameInput:(int)frameInput;
 
 //#if defined(TARGET_IOS)
 //-(id<MTLTexture>) loadMetalTexture:(NSString*)filename withCommandQueue:(id<MTLCommandQueue>)queue;

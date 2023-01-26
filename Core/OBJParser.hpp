@@ -360,15 +360,16 @@ static void LoadModelDataFromScene(Scene *scene, MTL::Device *device) {
     size_t vertexOffset = 0;
     size_t indexOffset = 0;
     
-    scene->vertexOffsets = std::vector<size_t> {};
-    scene->indexOffsets = std::vector<size_t> {};
+    // all this scene junk is bad news
+    scene->vertexOffsets = new std::vector<size_t>();
+    scene->indexOffsets = new std::vector<size_t>();
     
     // copy offsets over
     for(size_t v : vOffsets) {
-        scene->vertexOffsets.push_back(v);
+        scene->vertexOffsets->push_back(v);
     }
     for(size_t i : iOffsets) {
-        scene->indexOffsets.push_back(i);
+        scene->indexOffsets->push_back(i);
     }
     
 //     copy data from vectors to mtl buffers
@@ -392,6 +393,8 @@ static void LoadModelDataFromScene(Scene *scene, MTL::Device *device) {
 //        vertexOffset += modelData->vertexData.size()*sizeof(MBEVertex);
 //        indexOffset += modelData->indexData.size()*sizeof(MBEIndex);
 //    }
+    
+    scene->isLoaded = true; // would be nice if this was the only place where this was being set
     
     std::cout << "all done!" << std::endl;
     

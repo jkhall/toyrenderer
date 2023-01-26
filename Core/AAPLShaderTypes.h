@@ -93,6 +93,7 @@ static matrix_float4x4 matrix_float4x4_perspective(float aspect, float fovy, flo
     return mat;
 };
 
+// assumes origin is in the bottom left
 static matrix_float4x4 matrix_orthographic_projection(float left, float right, float top, float bottom)
 {
     float near = 0;
@@ -156,6 +157,11 @@ typedef struct {
     matrix_float3x3 normalMatrix;
     vector_float4 color;
 } FrameData;
+
+typedef struct {
+    matrix_float3x3 modelViewMatrix; // orthographic 2D rotation and translation
+    vector_float4 color;
+} FrameData2D;
 
 // picture model
 #endif /* AAPLShaderTypes_h */

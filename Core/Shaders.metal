@@ -49,6 +49,11 @@ struct ProjectedVertex {
     float4 color;
 };
 
+struct InstanceData {
+    float4 trans; // translation
+    float4 color;
+};
+
 // constants
 constant Light light = {
     .direction = { 0.13, 0.72, 0.68 },
@@ -74,45 +79,45 @@ constant Material material = {
 //}
 
 // can I get away with using this for both fragment and vertexShaders?
-vertex ProjectedVertex vertexShader(uint vid [[vertex_id]], constant MBEVertex *vertices [[buffer(0)]],
+// for 2D we may just not transform the uniforms all that much (ever?)
+vertex ProjectedVertex vertexShader(uint vid [[vertex_id]], uint iid [[instance_id]], constant MBEVertex *vertices [[buffer(0)]],
                            constant Uniforms *uniforms [[buffer(1)]],
-                           constant vector_uint2 *viewportPtr [[buffer(2)]])
+                           constant InstanceData *instanceData [[buffer(2)]])
 {
     ProjectedVertex out;
+    
 
-    out.position = uniforms->modelViewProjMatrix * vertices[vid].position;
+    out.position = uniforms->modelViewProjMatrix * (vertices[vid].position + instanceData[iid].trans);
     out.eye = -(uniforms->modelViewMatrix * vertices[vid].position).xyz;
     out.normal = uniforms->normalMatrix * vertices[vid].normal.xyz;
     out.vt = vertices[vid].uv;
-//    out.color = vertices[vid].color;
-    out.color = float4(0, 0, 0, 1);
-
+    
+//    out.color = vertices[vid].color; // should almost definitely be this
+    out.color = instanceData[iid].color;
+    
     return out;
 }
 
-
-//fragment float4 fragmentShader(ProjectedVertex vin [[stage_in]]){
-//    return vin.color;
-//}
-
 // text fragment shader
-fragment half4 textFragmentShader(ProjectedVertex vert [[stage_in]],
+fragment float4 textFragmentShader(ProjectedVertex vert [[stage_in]],
                                texture2d<float> texture [[texture(0)]],
                                 sampler samplr [[sampler(0)]]) {
     
     float4 color = float4(0.1, 0.1, 0.1, 1); // just black for now
     // Outline of glyph is the isocontour with value 50%
+//    float edgeDistance = 0.5;
     float edgeDistance = 0.5;
     // Sample the signed-distance field to find distance from this fragment to the glyph outline
     float sampleDistance = texture.sample(samplr, vert.vt).r; // <- is this set up correctly?...
     // Use local automatic gradients to find anti-aliased anisotropic edge width, cf. Gustavson 2012
-    float edgeWidth = 0.75 * length(float2(dfdx(sampleDistance), dfdy(sampleDistance)));
+//    float edgeWidth = 0.75 * length(float2(dfdx(sampleDistance), dfdy(sampleDistance)));
+    float edgeWidth = length(float2(dfdx(sampleDistance), dfdy(sampleDistance)));
     // Smooth the glyph edge by interpolating across the boundary in a band with the width determined above
     float insideness = smoothstep(edgeDistance - edgeWidth, edgeDistance + edgeWidth, sampleDistance);
     
     
 //    return half4(1, 1, 1, 1.0);
-    return half4(color.r, color.g, color.b, insideness);
+    return float4(color.r, color.g, color.b, insideness);
 }
 
 
@@ -121,8 +126,8 @@ fragment float4 fragmentShader(ProjectedVertex vin [[stage_in]],
                                texture2d<float> diffuseTexture [[texture(0)]],
                                sampler samplr [[sampler(0)]]) {
 
-//    return vin.color;
-//
+    return vin.color;
+
     if(is_null_texture(diffuseTexture)){
         // can I get here?
         return vin.color;
@@ -148,39 +153,3 @@ fragment float4 fragmentShader(ProjectedVertex vin [[stage_in]],
 
     return float4(ambientTerm + diffuseTerm + specularTerm, 1.);
 }
-//vertexShbdfmb b ader(uint vertexID [[vertex_id]],
-//            cbm b bdfmq b b bdfmq b nstant AAPLVertex *vertices [[buffer(AAPLVertexInputIndexVertices)]],
-//             constant vector_uint2bdmbdfm b bdm bbb bdfm b bdm b b bd   *viewportSizePointer [[buffer(AAPLVertexInputIndexViewportSize)]])
-//{
-//    RasterizerData out;
-//
-//    // Index into the array of positions to get the current vertex.
-//    // The positions are specified in pixel dimensions (i.e. a value of 100
-//    // is 100 pixels from the origin).
-//    float2 pixelSpacePosition = vertices[vertexID].position.xy;
-//
-//    // Get the viewport size and cast to float.
-//    vector_float2 viewportSize = vector_float2(*viewportSizePointer);
-//
-//
-//    // To convert from positions in pixel space to positions in clip-space,
-//    //  divide the pixel coordinates by half the size of the viewport.
-//    out.position = vector_float4(0.0, 0.0, 0.0, 1.0);
-//    out.position.xy = pixelSpacePosition / (viewportSize / 2.0);
-//
-//    // Pass the input color directly to the rasterizer.
-//    out.color = vertices[vertexID].color;
-//
-//    return out;
-//}
-
-// gonna come up with a new vertext function
-
-
-//fragment float4 fragmentShader(RasterizerData in [[stage_in]])
-//{
-//    // Return the interpolated color.
-//    return in.color;
-//}
-
-// new fragment shader
